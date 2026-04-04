@@ -133,8 +133,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        setMessage(error.error || 'Error saving announcement');
+        try {
+          const error = await response.json();
+          setMessage(error.error || 'Error saving announcement');
+        } catch (parseError) {
+          const text = await response.text();
+          setMessage(`Error saving announcement: ${response.status} ${text.substring(0, 100)}`);
+        }
         return;
       }
 
@@ -191,8 +196,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        setMessage(error.error || 'Error saving media');
+        try {
+          const error = await response.json();
+          setMessage(error.error || 'Error saving media');
+        } catch (parseError) {
+          const text = await response.text();
+          setMessage(`Error saving media: ${response.status} ${text.substring(0, 100)}`);
+        }
         return;
       }
 
@@ -248,8 +258,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        setMessage(error.error || 'Error saving teaching');
+        try {
+          const error = await response.json();
+          setMessage(error.error || 'Error saving teaching');
+        } catch (parseError) {
+          const text = await response.text();
+          setMessage(`Error saving teaching: ${response.status} ${text.substring(0, 100)}`);
+        }
         return;
       }
 

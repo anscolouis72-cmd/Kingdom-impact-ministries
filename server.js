@@ -418,7 +418,15 @@ app.get('/api/media', (req, res) => {
 });
 
 // Create Media (Admin Only)
-app.post('/api/media', uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }]), (req, res) => {
+app.post('/api/media', (req, res, next) => {
+  uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }])(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, (req, res) => {
   const { title, type, description, videoUrl, adminId } = req.body;
   const thumbnailUrl = req.files?.thumbnail ? `/uploads/${req.files.thumbnail[0].filename}` : null;
   const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : null;
@@ -473,7 +481,15 @@ app.post('/api/media', uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, {
 });
 
 // Update Media (Admin Only)
-app.put('/api/media/:id', uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }]), (req, res) => {
+app.put('/api/media/:id', (req, res, next) => {
+  uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }])(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, (req, res) => {
   const { id } = req.params;
   const { title, type, description, videoUrl } = req.body;
   
@@ -602,7 +618,15 @@ app.get('/api/teachings', (req, res) => {
 });
 
 // Create Teaching (Admin Only)
-app.post('/api/teachings', uploadVideo.single('videoFile'), (req, res) => {
+app.post('/api/teachings', (req, res, next) => {
+  uploadVideo.single('videoFile')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, (req, res) => {
   const { title, series, duration, videoUrl, description, date, adminId } = req.body;
   const videoFileUrl = req.file ? `/uploads/${req.file.filename}` : null;
   const finalVideoUrl = videoFileUrl || videoUrl || '';
@@ -648,7 +672,15 @@ app.post('/api/teachings', uploadVideo.single('videoFile'), (req, res) => {
 });
 
 // Update Teaching (Admin Only)
-app.put('/api/teachings/:id', uploadVideo.single('videoFile'), (req, res) => {
+app.put('/api/teachings/:id', (req, res, next) => {
+  uploadVideo.single('videoFile')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, (req, res) => {
   const { id } = req.params;
   const { title, series, duration, videoUrl, description, date } = req.body;
   
