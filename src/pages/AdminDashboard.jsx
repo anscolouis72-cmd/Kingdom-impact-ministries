@@ -134,11 +134,15 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
 
       if (!response.ok) {
         try {
-          const error = await response.json();
-          setMessage(error.error || 'Error saving announcement');
-        } catch (parseError) {
-          const text = await response.text();
-          setMessage(`Error saving announcement: ${response.status} ${text.substring(0, 100)}`);
+          const responseText = await response.text();
+          try {
+            const error = JSON.parse(responseText);
+            setMessage(error.error || 'Error saving announcement');
+          } catch {
+            setMessage(`Error saving announcement: ${response.status}`);
+          }
+        } catch (err) {
+          setMessage('Error saving announcement: Network error');
         }
         return;
       }
@@ -197,11 +201,15 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
 
       if (!response.ok) {
         try {
-          const error = await response.json();
-          setMessage(error.error || 'Error saving media');
-        } catch (parseError) {
-          const text = await response.text();
-          setMessage(`Error saving media: ${response.status} ${text.substring(0, 100)}`);
+          const responseText = await response.text();
+          try {
+            const error = JSON.parse(responseText);
+            setMessage(error.error || 'Error saving media');
+          } catch {
+            setMessage(`Error saving media: ${response.status}`);
+          }
+        } catch (err) {
+          setMessage('Error saving media: Network error');
         }
         return;
       }
@@ -259,11 +267,15 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
 
       if (!response.ok) {
         try {
-          const error = await response.json();
-          setMessage(error.error || 'Error saving teaching');
-        } catch (parseError) {
-          const text = await response.text();
-          setMessage(`Error saving teaching: ${response.status} ${text.substring(0, 100)}`);
+          const responseText = await response.text();
+          try {
+            const error = JSON.parse(responseText);
+            setMessage(error.error || 'Error saving teaching');
+          } catch {
+            setMessage(`Error saving teaching: ${response.status}`);
+          }
+        } catch (err) {
+          setMessage('Error saving teaching: Network error');
         }
         return;
       }
