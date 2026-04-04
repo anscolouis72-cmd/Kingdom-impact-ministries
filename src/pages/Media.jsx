@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Edit, Trash2, Plus } from 'lucide-react';
+import { Video, Edit, Trash2, Plus, Play } from 'lucide-react';
 
 const Media = ({ adminId }) => {
   const [media, setMedia] = useState([]);
@@ -93,6 +93,12 @@ const Media = ({ adminId }) => {
                 <span style={{ fontSize: '0.8rem', color: 'var(--accent-main)', fontWeight: 'bold', textTransform: 'uppercase' }}>{item.type}</span>
                 <h3 style={{ fontSize: '1.25rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>{item.title}</h3>
                 {item.description && <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>{item.description}</p>}
+                
+                {item.videoUrl && (
+                  <a href={item.videoUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--accent-main)', color: 'white', padding: '0.75rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 500, marginBottom: isAdmin ? '1rem' : 0 }}>
+                    <Play size={16} /> Watch Video
+                  </a>
+                )}
                 
                 {isAdmin && (
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
