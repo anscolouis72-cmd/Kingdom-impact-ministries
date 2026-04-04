@@ -1,0 +1,791 @@
+/* Bible Page Styles */
+.bible-main {
+  min-height: 100vh;
+  padding-bottom: 4rem;
+}
+
+.bible-hero {
+  background: linear-gradient(135deg, var(--accent-main) 0%, var(--accent-light) 100%);
+  color: white;
+  padding: 4rem 0;
+  text-align: center;
+  margin-bottom: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.bible-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: moveBackground 20s linear infinite;
+}
+
+@keyframes moveBackground {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(50px, 50px);
+  }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hero-icon {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.bible-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.bible-subtitle {
+  font-size: 1.1rem;
+  opacity: 0.95;
+  margin: 0;
+}
+
+/* Verse of the Day Section */
+.votd-section {
+  padding: 3rem 0 2rem;
+  background: var(--bg-secondary);
+  margin-bottom: 3rem;
+}
+
+.votd-card {
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--glass-bg) 100%);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.votd-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.votd-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.votd-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.votd-text {
+  font-size: 1.3rem;
+  font-style: italic;
+  color: var(--text-primary);
+  margin: 1.5rem 0;
+  line-height: 1.8;
+}
+
+.votd-reference {
+  font-weight: 600;
+  color: var(--accent-main);
+  margin: 1rem 0 2rem;
+  font-size: 1.1rem;
+}
+
+.votd-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.votd-btn {
+  background: var(--accent-main);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.votd-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Notification Message */
+.notification-message {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  background: var(--accent-main);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+  max-width: 400px;
+  word-wrap: break-word;
+}
+
+.notification-message.error {
+  background: #ff3b30;
+}
+
+.notification-message.info {
+  background: #007AFF;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Tabs Section */
+.tabs-section {
+  padding: 2rem 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 80px;
+  z-index: 40;
+}
+
+.tabs-header {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 1rem;
+}
+
+.version-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.version-selector label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.version-dropdown {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+}
+
+.version-dropdown:hover {
+  border-color: var(--accent-main);
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.1);
+}
+
+.version-dropdown:focus {
+  outline: none;
+  border-color: var(--accent-main);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 1rem 1.5rem;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  color: var(--accent-main);
+  border-bottom-color: var(--accent-main);
+}
+
+/* Main Content */
+.bible-content {
+  padding: 3rem 0;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Search Section */
+.search-section h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+
+.search-form {
+  margin-bottom: 2rem;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  flex: 1;
+  padding: 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-main);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+}
+
+.search-btn {
+  padding: 1rem 2rem;
+  background: var(--accent-main);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.search-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Search Format Guide */
+.search-format-guide {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.format-guide-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.format-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.format-example {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+}
+
+.format-example:hover {
+  border-color: var(--accent-main);
+  background: rgba(22, 163, 74, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.format-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.format-example code {
+  background: var(--accent-main);
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.format-tip {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.format-tip code {
+  background: var(--bg-secondary);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--accent-main);
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+/* Results Section */
+.results-section h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.verses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.verse-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.verse-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent-main);
+}
+
+.verse-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.verse-reference {
+  font-weight: 700;
+  color: var(--accent-main);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.verse-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--accent-main);
+  border-color: var(--accent-main);
+}
+
+.action-btn.favorited {
+  color: var(--accent-main);
+  border-color: var(--accent-main);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.verse-text {
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.no-results {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--bg-surface);
+  border-radius: 0.75rem;
+  border: 1px dashed var(--glass-border);
+}
+
+.no-results p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+/* Reading Plans Section */
+.plans-section h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.plan-card {
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--glass-bg) 100%);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
+  border-color: var(--accent-main);
+}
+
+.plan-card.selected {
+  background: linear-gradient(135deg, var(--accent-main) 0%, var(--accent-light) 100%);
+  color: white;
+  border-color: var(--accent-main);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
+}
+
+.plan-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  color: var(--accent-main);
+}
+
+.plan-card.selected .plan-icon {
+  color: white;
+}
+
+.plan-card h3 {
+  font-size: 1.3rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.plan-description {
+  color: var(--text-secondary);
+  margin: 0.5rem 0 1rem;
+  font-size: 0.95rem;
+}
+
+.plan-card.selected .plan-description {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.plan-duration {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 1rem 0;
+}
+
+.plan-card.selected .plan-duration {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.plan-btn {
+  background: var(--accent-main);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.plan-card.selected .plan-btn {
+  background: white;
+  color: var(--accent-main);
+}
+
+.plan-btn:hover {
+  transform: scale(1.05);
+}
+
+.plan-details {
+  background: var(--bg-surface);
+  border: 2px solid var(--accent-main);
+  border-radius: 1rem;
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.plan-details h3 {
+  font-size: 1.5rem;
+  color: var(--accent-main);
+  margin-bottom: 0.5rem;
+}
+
+.plan-details p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.passages-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.passages-list h4 {
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+
+.passage-item {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 0.4rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.passage-day {
+  background: var(--accent-main);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.3rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 60px;
+}
+
+.passage-ref {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Favorites Section */
+.favorites-section h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .bible-title {
+    font-size: 2rem;
+  }
+
+  .votd-card {
+    padding: 1.5rem;
+  }
+
+  .votd-text {
+    font-size: 1.1rem;
+  }
+
+  .search-input-group {
+    flex-direction: column;
+  }
+
+  .search-btn {
+    width: 100%;
+  }
+
+  .format-examples {
+    flex-direction: column;
+  }
+
+  .search-format-guide {
+    padding: 1rem;
+  }
+
+  .tabs-header {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .version-selector {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .version-dropdown {
+    flex: 1;
+  }
+
+  .tab-buttons {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .verse-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .verse-actions {
+    align-self: flex-start;
+  }
+
+  .plans-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .votd-actions {
+    flex-direction: column;
+  }
+
+  .votd-btn {
+    justify-content: center;
+    flex: 1;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bible-hero {
+    padding: 2rem 0;
+  }
+
+  .bible-title {
+    font-size: 1.5rem;
+  }
+
+  .bible-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .votd-card {
+    padding: 1rem;
+  }
+
+  .votd-text {
+    font-size: 1rem;
+  }
+
+  .tab-btn {
+    padding: 0.65rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .verse-card {
+    padding: 1rem;
+  }
+
+  .action-btn {
+    padding: 0.4rem;
+  }
+}
