@@ -341,6 +341,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       description: mediaItem.description || '',
       date: '',
       image: null,
+      images: [],
       videoFile: null,
       type: mediaItem.type,
       videoUrl: mediaItem.videoUrl || '',
@@ -348,6 +349,24 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       duration: ''
     });
     setImagePreview(mediaItem.thumbnail || null);
+    
+    // Load existing gallery images
+    if (mediaItem.gallery_images) {
+      try {
+        const galleryImages = typeof mediaItem.gallery_images === 'string' 
+          ? JSON.parse(mediaItem.gallery_images)
+          : Array.isArray(mediaItem.gallery_images) 
+          ? mediaItem.gallery_images 
+          : [];
+        setImagePreviews(galleryImages);
+      } catch (e) {
+        console.error('Error parsing gallery_images:', e);
+        setImagePreviews([]);
+      }
+    } else {
+      setImagePreviews([]);
+    }
+    
     setVideoPreview(null);
     setShowForm(true);
   };
