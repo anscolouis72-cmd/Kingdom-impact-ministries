@@ -64,6 +64,22 @@ const uploadVideo = multer({
   }
 });
 
+// Multer config for media uploads (allows both images and videos)
+const uploadMedia = multer({
+  storage: storage,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
+  fileFilter: (req, file, cb) => {
+    const imageAllowed = file.mimetype.startsWith('image/');
+    const videoAllowed = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'application/octet-stream'].includes(file.mimetype) || file.originalname.match(/\.(mp4|mov|avi)$/i);
+    
+    if (imageAllowed || videoAllowed) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'));
+    }
+  }
+});
+
 // Middleware to set MIME types for video files
 app.use((req, res, next) => {
   if (req.url.match(/\.(mp4|mov|avi|webm)$/i)) {
@@ -462,7 +478,7 @@ app.get('/api/media', (req, res) => {
 
 // Create Media (Admin Only)
 app.post('/api/media', (req, res, next) => {
-  uploadVideo.fields([
+  uploadMedia.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'images', maxCount: 20 },
     { name: 'videoFile', maxCount: 1 }
@@ -560,7 +576,7 @@ app.post('/api/media', (req, res, next) => {
 
 // Update Media (Admin Only)
 app.put('/api/media/:id', (req, res, next) => {
-  uploadVideo.fields([
+  uploadMedia.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'images', maxCount: 20 },
     { name: 'videoFile', maxCount: 1 }
