@@ -64,8 +64,26 @@ const uploadVideo = multer({
   }
 });
 
-// Serve uploaded images statically
-app.use('/uploads', express.static(uploadsDir));
+// Middleware to set MIME types for video files
+app.use((req, res, next) => {
+  if (req.url.match(/\.(mp4|mov|avi|webm)$/i)) {
+    res.type('video/mp4');
+    res.set('Accept-Ranges', 'bytes');
+  }
+  next();
+});
+
+// Serve uploaded images and videos statically
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '1d',
+  etag: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.match(/\.(mp4|mov|avi|webm)$/i)) {
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
+  }
+}));
 
 // Initialize SQLite database connection
 // SQLite uses the exact same SQL logic as MySQL but stores the database compactly in an automatically generated file.

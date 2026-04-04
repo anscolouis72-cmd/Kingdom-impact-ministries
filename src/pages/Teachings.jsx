@@ -138,10 +138,23 @@ const Teachings = () => {
             </button>
             <h2 style={{ marginBottom: '0.5rem', marginTop: 0 }}>{selectedVideo.title}</h2>
             {selectedVideo.series && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>Series: {selectedVideo.series}</p>}
-            <video controls style={{ width: '100%', height: 'auto', maxHeight: '60vh', backgroundColor: 'black', borderRadius: '8px' }}>
-              <source src={selectedVideo.videoUrl} type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
+            <div style={{ width: '100%', backgroundColor: 'black', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <video 
+                key={selectedVideo.id}
+                controls 
+                autoPlay
+                style={{ width: '100%', height: 'auto', maxHeight: '60vh', display: 'block' }}
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  console.error('Video playback error:', e);
+                  alert('Error playing video. The video format may not be supported by your browser.');
+                }}
+              >
+                <source src={selectedVideo.videoUrl} type="video/mp4" />
+                <source src={selectedVideo.videoUrl} type="video/quicktime" />
+                <p>Your browser does not support the video tag. Try using a modern browser like Chrome, Firefox, or Safari.</p>
+              </video>
+            </div>
             {selectedVideo.description && <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>{selectedVideo.description}</p>}
           </div>
         </div>
