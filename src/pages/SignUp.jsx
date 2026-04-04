@@ -31,7 +31,7 @@ const SignUp = ({ setIsAuthenticated }) => {
       }
       
       setSignupEmail(formData.email);
-      setSuccessMessage(`Account created! A verification link has been sent to ${formData.email}. Check your email and enter the verification code below.`);
+      setSuccessMessage(data.message || `Account created! A verification email has been sent to ${formData.email}. Check your email and enter the verification code below.`);
       setStep('verify');
     } catch (err) {
       setError("Failed to connect to the database server. Ensure the backend is running.");

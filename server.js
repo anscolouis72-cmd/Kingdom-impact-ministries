@@ -4,6 +4,12 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
+
 const logStream = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
 
 function logError(message, err) {
@@ -11,6 +17,69 @@ function logError(message, err) {
   const logMessage = `[${timestamp}] ${message}: ${err?.message || err || ''}\n`;
   console.error(logMessage);
   logStream.write(logMessage);
+}
+
+// Email Configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'your-email@gmail.com',
+    pass: process.env.EMAIL_PASSWORD || 'your-app-password'
+  }
+});
+
+// Function to send verification email
+async function sendVerificationEmail(email, name, verificationToken) {
+  try {
+    const verificationLink = `http://localhost:3000/signup?verify=${verificationToken}&email=${encodeURIComponent(email)}`;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      to: email,
+      subject: 'Kingdom Impact Ministries - Email Verification',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 8px; color: white; text-align: center;">
+            <h1 style="margin: 0;">Kingdom Impact Ministries</h1>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Email Verification</p>
+          </div>
+          
+          <div style="padding: 2rem; background: #f5f5f5; border-radius: 8px; margin: 1rem 0;">
+            <p style="color: #333; font-size: 1rem; margin: 0 0 1rem 0;">Hi <strong>${name}</strong>,</p>
+            
+            <p style="color: #555; font-size: 0.95rem; line-height: 1.6; margin: 0 0 1.5rem 0;">
+              Thank you for creating an account at Kingdom Impact Ministries! To complete your registration, please verify your email address using the code below:
+            </p>
+            
+            <div style="background: white; border: 2px dashed #667eea; padding: 1.5rem; border-radius: 8px; text-align: center; margin: 1.5rem 0;">
+              <p style="color: #999; font-size: 0.85rem; margin: 0 0 0.5rem 0;">VERIFICATION CODE</p>
+              <p style="font-size: 1.8rem; font-weight: bold; color: #667eea; margin: 0; letter-spacing: 2px; font-family: monospace;">${verificationToken}</p>
+            </div>
+            
+            <p style="color: #555; font-size: 0.95rem; line-height: 1.6; margin: 1.5rem 0;">
+              Or use this direct link: <a href="${verificationLink}" style="color: #667eea; text-decoration: none;">${verificationLink}</a>
+            </p>
+            
+            <p style="color: #777; font-size: 0.9rem; margin: 1.5rem 0;">
+              This verification code will expire in 24 hours. If you didn't create this account, please ignore this email.
+            </p>
+          </div>
+          
+          <div style="text-align: center; padding: 1rem; color: #999; font-size: 0.85rem;">
+            <p style="margin: 0;">© Kingdom Impact Ministries. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    logError('Email sending error', error);
+    return false;
+  }
 }
 
 const app = express();
@@ -276,7 +345,7 @@ app.post('/api/signup', (req, res) => {
 
   const query = `INSERT INTO users (name, email, password, verified, verification_token, token_expiry) VALUES (?, ?, ?, ?, ?, ?)`;
   
-  db.run(query, [name, email, password, 0, verificationToken, tokenExpiry], function(err) {
+  db.run(query, [name, email, password, 0, verificationToken, tokenExpiry], async function(err) {
     if (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
         return res.status(409).json({ error: 'An account with this email already exists in the database!' });
@@ -284,15 +353,18 @@ app.post('/api/signup', (req, res) => {
       return res.status(500).json({ error: 'Database server error' });
     }
     
-    // In a production environment, send email here with verification link
-    // For now, return the token so frontend can show verification info
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, name, verificationToken);
+    
     res.status(201).json({ 
       id: this.lastID, 
       name, 
       email,
       verified: 0,
-      message: 'Account created! Please check your email to verify your account. Verification link: ' + verificationToken,
-      verificationToken: verificationToken
+      message: emailSent 
+        ? `Account created! A verification email has been sent to ${email}. Please check your email and enter the verification code.`
+        : `Account created! However, email sending failed. Please use this code to verify: ${verificationToken}`,
+      emailSent: emailSent
     });
   });
 });
