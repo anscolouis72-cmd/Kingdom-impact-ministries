@@ -14,12 +14,14 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     date: '',
     image: null,
+    images: [],
     videoFile: null,
     type: '',
     videoUrl: '',
@@ -73,17 +75,36 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
     if (type === 'file') {
-      const file = files[0];
-      setFormData(prev => ({ ...prev, [name]: file }));
-      if (file) {
-        if (name === 'image') {
+      if (name === 'images') {
+        // Handle multiple images
+        const fileList = Array.from(files);
+        setFormData(prev => ({ ...prev, images: fileList }));
+        
+        // Create previews for all images
+        const previews = [];
+        fileList.forEach(file => {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setImagePreview(reader.result);
+            previews.push(reader.result);
+            if (previews.length === fileList.length) {
+              setImagePreviews(previews);
+            }
           };
           reader.readAsDataURL(file);
-        } else if (name === 'videoFile') {
-          setVideoPreview(file.name);
+        });
+      } else {
+        const file = files[0];
+        setFormData(prev => ({ ...prev, [name]: file }));
+        if (file) {
+          if (name === 'image') {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+          } else if (name === 'videoFile') {
+            setVideoPreview(file.name);
+          }
         }
       }
     } else {
@@ -186,6 +207,11 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       }
       if (formData.image) {
         payloadData.append('thumbnail', formData.image);
+      }
+      if (formData.images && formData.images.length > 0) {
+        formData.images.forEach((img, index) => {
+          payloadData.append(`images`, img);
+        });
       }
       if (formData.videoFile) {
         payloadData.append('videoFile', formData.videoFile);
@@ -384,6 +410,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       description: '',
       date: '',
       image: null,
+      images: [],
       videoFile: null,
       type: '',
       videoUrl: '',
@@ -391,6 +418,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       duration: ''
     });
     setImagePreview(null);
+    setImagePreviews([]);
     setVideoPreview(null);
     setShowForm(false);
     setEditingId(null);
@@ -520,6 +548,28 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video URL</label>
                   <input type="url" name="videoUrl" value={formData.videoUrl} onChange={handleInputChange} placeholder="https://youtu.be/..." style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Gallery Images (Multiple) *</label>
+                  <input type="file" name="images" onChange={handleInputChange} accept="image/*" multiple style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer' }} />
+                  {imagePreviews && imagePreviews.length > 0 && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Selected: {imagePreviews.length} image(s)</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', height: '100px', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)' }}>
+                            <img src={preview} alt={`Preview ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <button type="button" onClick={() => { 
+                              const newImages = formData.images.filter((_, i) => i !== index);
+                              const newPreviews = imagePreviews.filter((_, i) => i !== index);
+                              setFormData(p => ({ ...p, images: newImages }));
+                              setImagePreviews(newPreviews);
+                            }} style={{ position: 'absolute', top: '0.25rem', right: '0.25rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

@@ -184,6 +184,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
         }
       }
     });
+
+    // Migrate: Add gallery_images column to media table if it doesn't exist
+    db.all("PRAGMA table_info(media)", (err, columns) => {
+      if (!err && columns) {
+        const hasGalleryColumn = columns.some(col => col.name === 'gallery_images');
+        if (!hasGalleryColumn) {
+          db.run(`ALTER TABLE media ADD COLUMN gallery_images TEXT DEFAULT '[]'`, (err) => {
+            if (err) {
+              console.error('Error adding gallery_images column:', err.message);
+            } else {
+              console.log('Successfully added gallery_images column to media table');
+            }
+          });
+        }
+      }
+    });
   }
 });
 
@@ -446,7 +462,11 @@ app.get('/api/media', (req, res) => {
 
 // Create Media (Admin Only)
 app.post('/api/media', (req, res, next) => {
-  uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }])(req, res, (err) => {
+  uploadVideo.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'images', maxCount: 20 },
+    { name: 'videoFile', maxCount: 1 }
+  ])(req, res, (err) => {
     if (err) {
       console.error('Multer error:', err.message);
       return res.status(400).json({ error: err.message || 'File upload error' });
@@ -460,7 +480,12 @@ app.post('/api/media', (req, res, next) => {
     const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : null;
     const finalVideoUrl = videoFileUrl || videoUrl || '';
     
-    const logMsg = `POST /api/media - title: ${title}, type: ${type}, adminId: ${adminId}, videoUrl: ${videoUrl}, has thumbnail: ${!!req.files?.thumbnail}, has videoFile: ${!!req.files?.videoFile}`;
+    // Handle multiple gallery images
+    const galleryImages = req.files?.images 
+      ? req.files.images.map(file => `/uploads/${file.filename}`)
+      : [];
+    
+    const logMsg = `POST /api/media - title: ${title}, type: ${type}, adminId: ${adminId}, videoUrl: ${videoUrl}, has thumbnail: ${!!req.files?.thumbnail}, has videoFile: ${!!req.files?.videoFile}, gallery images: ${galleryImages.length}`;
     console.log(logMsg);
     logStream.write(`[${new Date().toISOString()}] ${logMsg}\n`);
     
@@ -470,6 +495,11 @@ app.post('/api/media', (req, res, next) => {
       }
       if (req.files?.videoFile) {
         fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
+      if (req.files?.images) {
+        req.files.images.forEach(file => {
+          fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+        });
       }
       return res.status(400).json({ error: 'Please provide title, type, and adminId' });
     }
@@ -481,18 +511,28 @@ app.post('/api/media', (req, res, next) => {
       if (req.files?.videoFile) {
         fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
       }
+      if (req.files?.images) {
+        req.files.images.forEach(file => {
+          fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+        });
+      }
       return res.status(400).json({ error: 'Please provide a video file or video URL' });
     }
 
-    const query = `INSERT INTO media (title, type, description, thumbnail, videoUrl, adminId) VALUES (?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO media (title, type, description, thumbnail, videoUrl, gallery_images, adminId) VALUES (?, ?, ?, ?, ?, ?, ?)`;
     
-    db.run(query, [title, type, description || '', thumbnailUrl, finalVideoUrl, adminId], function(err) {
+    db.run(query, [title, type, description || '', thumbnailUrl, finalVideoUrl, JSON.stringify(galleryImages), adminId], function(err) {
       if (err) {
         if (req.files?.thumbnail) {
           fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
         }
         if (req.files?.videoFile) {
           fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+        }
+        if (req.files?.images) {
+          req.files.images.forEach(file => {
+            fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+          });
         }
         logError('DB Error in POST /api/media', err);
         return res.status(500).json({ error: err.message || 'Database error' });
@@ -505,6 +545,7 @@ app.post('/api/media', (req, res, next) => {
         description,
         thumbnail: thumbnailUrl,
         videoUrl: finalVideoUrl,
+        gallery_images: galleryImages,
         adminId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -519,7 +560,11 @@ app.post('/api/media', (req, res, next) => {
 
 // Update Media (Admin Only)
 app.put('/api/media/:id', (req, res, next) => {
-  uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }])(req, res, (err) => {
+  uploadVideo.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'images', maxCount: 20 },
+    { name: 'videoFile', maxCount: 1 }
+  ])(req, res, (err) => {
     if (err) {
       console.error('Multer error:', err.message);
       return res.status(400).json({ error: err.message || 'File upload error' });
@@ -540,11 +585,16 @@ app.put('/api/media/:id', (req, res, next) => {
       if (req.files?.videoFile) {
         fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
       }
+      if (req.files?.images) {
+        req.files.images.forEach(file => {
+          fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+        });
+      }
       return res.status(400).json({ error: 'Please provide title and type' });
     }
 
     // Fetch current media to delete old files
-    db.get(`SELECT thumbnail, videoUrl FROM media WHERE id = ?`, [id], (err, row) => {
+    db.get(`SELECT thumbnail, videoUrl, gallery_images FROM media WHERE id = ?`, [id], (err, row) => {
       if (!err && row) {
         // Delete old thumbnail if new one is uploaded
         if (req.files?.thumbnail && row.thumbnail) {
@@ -556,6 +606,18 @@ app.put('/api/media/:id', (req, res, next) => {
           const oldVideoPath = path.join(__dirname, row.videoUrl);
           fs.unlink(oldVideoPath, (err) => { if (err) console.error('Error deleting old video:', err); });
         }
+        // Delete old gallery images if new ones are uploaded
+        if (req.files?.images && row.gallery_images) {
+          try {
+            const oldImages = JSON.parse(row.gallery_images);
+            oldImages.forEach(imagePath => {
+              const oldImagePath = path.join(__dirname, imagePath);
+              fs.unlink(oldImagePath, (err) => { if (err) console.error('Error deleting old gallery image:', err); });
+            });
+          } catch (e) {
+            console.error('Error parsing old gallery_images:', e);
+          }
+        }
       }
     });
 
@@ -563,16 +625,33 @@ app.put('/api/media/:id', (req, res, next) => {
     const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : undefined;
     const finalVideoUrl = videoFileUrl || videoUrl || undefined;
     
+    // Handle gallery images
+    const galleryImages = req.files?.images 
+      ? req.files.images.map(file => `/uploads/${file.filename}`)
+      : undefined;
+    
     let query, params;
-    if (thumbnailUrl && finalVideoUrl) {
+    if (thumbnailUrl && finalVideoUrl && galleryImages) {
+      query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, videoUrl = ?, gallery_images = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+      params = [title, type, description || '', thumbnailUrl, finalVideoUrl, JSON.stringify(galleryImages), id];
+    } else if (thumbnailUrl && finalVideoUrl) {
       query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, videoUrl = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
       params = [title, type, description || '', thumbnailUrl, finalVideoUrl, id];
+    } else if (thumbnailUrl && galleryImages) {
+      query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, gallery_images = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+      params = [title, type, description || '', thumbnailUrl, JSON.stringify(galleryImages), id];
+    } else if (finalVideoUrl && galleryImages) {
+      query = `UPDATE media SET title = ?, type = ?, description = ?, videoUrl = ?, gallery_images = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+      params = [title, type, description || '', finalVideoUrl, JSON.stringify(galleryImages), id];
     } else if (thumbnailUrl) {
       query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
       params = [title, type, description || '', thumbnailUrl, id];
     } else if (finalVideoUrl) {
       query = `UPDATE media SET title = ?, type = ?, description = ?, videoUrl = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
       params = [title, type, description || '', finalVideoUrl, id];
+    } else if (galleryImages) {
+      query = `UPDATE media SET title = ?, type = ?, description = ?, gallery_images = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+      params = [title, type, description || '', JSON.stringify(galleryImages), id];
     } else {
       query = `UPDATE media SET title = ?, type = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
       params = [title, type, description || '', id];
@@ -586,6 +665,11 @@ app.put('/api/media/:id', (req, res, next) => {
         if (req.files?.videoFile) {
           fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
         }
+        if (req.files?.images) {
+          req.files.images.forEach(file => {
+            fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+          });
+        }
         console.error('DB Error:', err);
         return res.status(500).json({ error: err.message || 'Database error' });
       }
@@ -596,6 +680,11 @@ app.put('/api/media/:id', (req, res, next) => {
         }
         if (req.files?.videoFile) {
           fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+        }
+        if (req.files?.images) {
+          req.files.images.forEach(file => {
+            fs.unlink(file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+          });
         }
         return res.status(404).json({ error: 'Media not found' });
       }
