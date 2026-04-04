@@ -4,6 +4,14 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const logStream = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
+
+function logError(message, err) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}: ${err?.message || err || ''}\n`;
+  console.error(logMessage);
+  logStream.write(logMessage);
+}
 
 const app = express();
 app.use(cors({
@@ -434,7 +442,9 @@ app.post('/api/media', (req, res, next) => {
     const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : null;
     const finalVideoUrl = videoFileUrl || videoUrl || '';
     
-    console.log('POST /api/media - title:', title, 'type:', type, 'adminId:', adminId, 'has files:', !!req.files);
+    const logMsg = `POST /api/media - title: ${title}, type: ${type}, adminId: ${adminId}, videoUrl: ${videoUrl}, has thumbnail: ${!!req.files?.thumbnail}, has videoFile: ${!!req.files?.videoFile}`;
+    console.log(logMsg);
+    logStream.write(`[${new Date().toISOString()}] ${logMsg}\n`);
     
     if (!title || !type || !adminId) {
       if (req.files?.thumbnail) {
@@ -466,7 +476,7 @@ app.post('/api/media', (req, res, next) => {
         if (req.files?.videoFile) {
           fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
         }
-        console.error('DB Error:', err);
+        logError('DB Error in POST /api/media', err);
         return res.status(500).json({ error: err.message || 'Database error' });
       }
       
@@ -484,6 +494,7 @@ app.post('/api/media', (req, res, next) => {
     });
   } catch (err) {
     console.error('Error in POST /api/media:', err);
+    logError('Error in POST /api/media route', err);
     res.status(500).json({ error: err.message || 'Internal server error' });
   }
 });
