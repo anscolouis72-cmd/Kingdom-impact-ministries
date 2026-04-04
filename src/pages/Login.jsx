@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, BookOpen } from 'lucide-react';
+import { Mail, Lock, LogIn, BookOpen, AlertCircle } from 'lucide-react';
 
 const Login = ({ setIsAuthenticated }) => {
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setUnverifiedEmail('');
 
     try {
       const response = await fetch('http://localhost:5000/api/login', {
@@ -19,7 +23,12 @@ const Login = ({ setIsAuthenticated }) => {
       const data = await response.json();
       
       if (!response.ok) {
-        alert(data.error);
+        if (response.status === 403) {
+          setUnverifiedEmail(data.email);
+          setError(data.error);
+        } else {
+          setError(data.error);
+        }
         return;
       }
       
@@ -27,7 +36,7 @@ const Login = ({ setIsAuthenticated }) => {
       alert(`Welcome back, ${data.name}! You are authenticated directly from the Database.`);
       navigate('/home');
     } catch (err) {
-      alert("Failed to connect to the database server. Ensure you restart the dev server.");
+      setError("Failed to connect to the database server. Ensure the backend is running.");
     }
   };
 
@@ -48,6 +57,20 @@ const Login = ({ setIsAuthenticated }) => {
         </div>
 
         <form onSubmit={handleSubmit} style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {error && (
+            <div style={{ padding: '1rem', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <AlertCircle size={20} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: 500 }}>{error}</p>
+                {unverifiedEmail && (
+                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
+                    <Link to="/signup" style={{ color: '#ef4444', textDecoration: 'underline', fontWeight: 600 }}>Re-verify your email or create a new account</Link>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Email Address</label>

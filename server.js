@@ -185,16 +185,39 @@ const db = new sqlite3.Database(dbPath, (err) => {
       }
     });
 
-    // Migrate: Add role column to users table if it doesn't exist
+    // Migrate: Add verified and verification_token columns to users table if they don't exist
     db.all("PRAGMA table_info(users)", (err, columns) => {
       if (!err && columns) {
-        const hasRoleColumn = columns.some(col => col.name === 'role');
-        if (!hasRoleColumn) {
-          db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`, (err) => {
+        const hasVerifiedColumn = columns.some(col => col.name === 'verified');
+        const hasTokenColumn = columns.some(col => col.name === 'verification_token');
+        const hasTokenExpiryColumn = columns.some(col => col.name === 'token_expiry');
+        
+        if (!hasVerifiedColumn) {
+          db.run(`ALTER TABLE users ADD COLUMN verified INTEGER DEFAULT 0`, (err) => {
             if (err) {
-              console.error('Error adding role column:', err.message);
+              console.error('Error adding verified column:', err.message);
             } else {
-              console.log('Successfully added role column to users table');
+              console.log('Successfully added verified column to users table');
+            }
+          });
+        }
+        
+        if (!hasTokenColumn) {
+          db.run(`ALTER TABLE users ADD COLUMN verification_token TEXT`, (err) => {
+            if (err) {
+              console.error('Error adding verification_token column:', err.message);
+            } else {
+              console.log('Successfully added verification_token column to users table');
+            }
+          });
+        }
+        
+        if (!hasTokenExpiryColumn) {
+          db.run(`ALTER TABLE users ADD COLUMN token_expiry DATETIME`, (err) => {
+            if (err) {
+              console.error('Error adding token_expiry column:', err.message);
+            } else {
+              console.log('Successfully added token_expiry column to users table');
             }
           });
         }
@@ -219,7 +242,18 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-// Sign Up Endpoint
+// Utility function to generate verification token
+function generateVerificationToken() {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Utility function to validate email format
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Signup Endpoint
 app.post('/api/signup', (req, res) => {
   const { name, email, password } = req.body;
   
@@ -227,9 +261,22 @@ app.post('/api/signup', (req, res) => {
     return res.status(400).json({ error: 'Please provide all details' });
   }
 
-  const query = `INSERT INTO users (name, email, password) VALUES (?, ?, ?)`;
+  // Validate email format
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Please provide a valid email address' });
+  }
+
+  // Validate password length
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+
+  const verificationToken = generateVerificationToken();
+  const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+  const query = `INSERT INTO users (name, email, password, verified, verification_token, token_expiry) VALUES (?, ?, ?, ?, ?, ?)`;
   
-  db.run(query, [name, email, password], function(err) {
+  db.run(query, [name, email, password, 0, verificationToken, tokenExpiry], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
         return res.status(409).json({ error: 'An account with this email already exists in the database!' });
@@ -237,11 +284,63 @@ app.post('/api/signup', (req, res) => {
       return res.status(500).json({ error: 'Database server error' });
     }
     
+    // In a production environment, send email here with verification link
+    // For now, return the token so frontend can show verification info
     res.status(201).json({ 
       id: this.lastID, 
       name, 
       email,
-      message: 'Account correctly saved to database'
+      verified: 0,
+      message: 'Account created! Please check your email to verify your account. Verification link: ' + verificationToken,
+      verificationToken: verificationToken
+    });
+  });
+});
+
+// Email Verification Endpoint
+app.post('/api/verify-email', (req, res) => {
+  const { email, token } = req.body;
+
+  if (!email || !token) {
+    return res.status(400).json({ error: 'Email and verification token required' });
+  }
+
+  const query = `SELECT id, verified, token_expiry FROM users WHERE email = ? AND verification_token = ?`;
+
+  db.get(query, [email, token], (err, user) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Database query error' });
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid verification token or email' });
+    }
+
+    if (user.verified === 1) {
+      return res.status(400).json({ error: 'Email already verified' });
+    }
+
+    // Check if token expired
+    const now = new Date();
+    const expiry = new Date(user.token_expiry);
+    if (now > expiry) {
+      return res.status(401).json({ error: 'Verification token has expired. Please sign up again.' });
+    }
+
+    // Mark email as verified
+    const updateQuery = `UPDATE users SET verified = 1, verification_token = NULL, token_expiry = NULL WHERE email = ?`;
+
+    db.run(updateQuery, [email], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Failed to verify email' });
+      }
+
+      res.status(200).json({ 
+        message: 'Email verified successfully! You can now log in.',
+        verified: true
+      });
     });
   });
 });
@@ -250,7 +349,7 @@ app.post('/api/signup', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   
-  const query = `SELECT id, name, email FROM users WHERE email = ? AND password = ?`;
+  const query = `SELECT id, name, email, verified FROM users WHERE email = ? AND password = ?`;
   
   db.get(query, [email, password], (err, user) => {
     if (err) {
@@ -260,6 +359,14 @@ app.post('/api/login', (req, res) => {
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    if (!user.verified) {
+      return res.status(403).json({ 
+        error: 'Please verify your email before logging in. Check your email for the verification link.',
+        verified: false,
+        email: user.email
+      });
     }
     
     res.status(200).json(user);
