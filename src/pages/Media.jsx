@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Edit, Trash2, Plus, Play, X } from 'lucide-react';
+import { Video, Edit, Trash2, Plus, Play, X, ChevronLeft, ChevronRight, Image } from 'lucide-react';
 
 const Media = ({ adminId }) => {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [selectedGallery, setSelectedGallery] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     // Check if user is admin
@@ -97,6 +99,37 @@ const Media = ({ adminId }) => {
                 <h3 style={{ fontSize: '1.25rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>{item.title}</h3>
                 {item.description && <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>{item.description}</p>}
                 
+                {/* Gallery Images Grid */}
+                {item.gallery_images && (
+                  (() => {
+                    try {
+                      const galleryImages = typeof item.gallery_images === 'string' ? JSON.parse(item.gallery_images) : item.gallery_images;
+                      return galleryImages && galleryImages.length > 0 ? (
+                        <div>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                            <Image size={14} style={{ display: 'inline', marginRight: '0.25rem' }} /> Gallery ({galleryImages.length} images)
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+                            {galleryImages.slice(0, 6).map((imgPath, idx) => (
+                              <div key={idx} onClick={() => { setSelectedGallery(galleryImages); setCurrentImageIndex(idx); }} style={{ position: 'relative', width: '100%', paddingBottom: '100%', background: 'var(--bg-surface)', borderRadius: '6px', overflow: 'hidden', transition: 'transform 0.2s ease', border: '1px solid var(--glass-border)' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)' }>
+                                <img src={imgPath} alt={`Gallery ${idx + 1}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            ))}
+                            {galleryImages.length > 6 && (
+                              <div onClick={() => { setSelectedGallery(galleryImages); setCurrentImageIndex(0); }} style={{ position: 'relative', width: '100%', paddingBottom: '100%', background: 'var(--accent-main)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer', color: 'white' }}>
+                                +{galleryImages.length - 6}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null;
+                    } catch (e) {
+                      console.error('Error parsing gallery images:', e);
+                      return null;
+                    }
+                  })()
+                )}
+                
                 {item.videoUrl && (
                   isLocalVideo(item.videoUrl) ? (
                     <button onClick={() => setSelectedVideo(item)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--accent-main)', color: 'white', padding: '0.75rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500, marginBottom: isAdmin ? '1rem' : 0, width: '100%' }}>
@@ -154,6 +187,86 @@ const Media = ({ adminId }) => {
               </video>
             </div>
             {selectedVideo.description && <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>{selectedVideo.description}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Gallery Modal */}
+      {selectedGallery && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setSelectedGallery(null)}>
+          <div style={{ position: 'relative', width: '90%', maxWidth: '1000px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Main Image */}
+            <div style={{ position: 'relative', width: '100%', maxHeight: '75vh', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'black', marginBottom: '1rem' }}>
+              <img 
+                src={selectedGallery[currentImageIndex]} 
+                alt={`Gallery Image ${currentImageIndex + 1}`}
+                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
+              />
+              
+              {/* Previous Button */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(currentImageIndex === 0 ? selectedGallery.length - 1 : currentImageIndex - 1);
+                }} 
+                style={{ position: 'absolute', left: '1rem', background: 'rgba(255, 255, 255, 0.3)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+              >
+                <ChevronLeft size={24} />
+              </button>
+              
+              {/* Next Button */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(currentImageIndex === selectedGallery.length - 1 ? 0 : currentImageIndex + 1);
+                }} 
+                style={{ position: 'absolute', right: '1rem', background: 'rgba(255, 255, 255, 0.3)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+              >
+                <ChevronRight size={24} />
+              </button>
+
+              {/* Close Button */}
+              <button 
+                onClick={() => setSelectedGallery(null)} 
+                style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0, 0, 0, 0.5)', border: 'none', color: 'white', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+              >
+                <X size={24} />
+              </button>
+
+              {/* Image Counter */}
+              <div style={{ position: 'absolute', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 500 }}>
+                {currentImageIndex + 1} / {selectedGallery.length}
+              </div>
+            </div>
+
+            {/* Thumbnail Navigation */}
+            <div style={{ width: '100%', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '1rem', justifyContent: 'center', padding: '0 1rem 1rem 1rem' }}>
+              {selectedGallery.map((imgPath, idx) => (
+                <img
+                  key={idx}
+                  src={imgPath}
+                  alt={`Thumbnail ${idx + 1}`}
+                  onClick={() => setCurrentImageIndex(idx)}
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    objectFit: 'cover',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    opacity: idx === currentImageIndex ? 1 : 0.6,
+                    border: idx === currentImageIndex ? '2px solid var(--accent-main)' : 'none',
+                    transition: 'opacity 0.2s ease, border 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = idx === currentImageIndex ? '1' : '0.6'}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
