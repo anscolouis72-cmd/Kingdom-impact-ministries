@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Edit, Trash2, Plus, Play } from 'lucide-react';
+import { BookOpen, Edit, Trash2, Plus, Play, X } from 'lucide-react';
 
 const Teachings = () => {
   const [teachings, setTeachings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
     // Check if user is admin
@@ -46,6 +47,8 @@ const Teachings = () => {
       alert('Connection error');
     }
   };
+
+  const isLocalVideo = (url) => url && url.startsWith('/uploads/');
 
   if (loading) {
     return (
@@ -97,9 +100,15 @@ const Teachings = () => {
                   {item.duration}
                 </div>
                 {item.videoUrl && (
-                  <a href={item.videoUrl} target="_blank" rel="noopener noreferrer" style={{ background: 'var(--accent-main)', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Play size={16} /> Watch
-                  </a>
+                  isLocalVideo(item.videoUrl) ? (
+                    <button onClick={() => setSelectedVideo(item)} style={{ background: 'var(--accent-main)', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Play size={16} /> Watch
+                    </button>
+                  ) : (
+                    <a href={item.videoUrl} target="_blank" rel="noopener noreferrer" style={{ background: 'var(--accent-main)', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Play size={16} /> Watch
+                    </a>
+                  )
                 )}
               </div>
               {isAdmin && (
@@ -120,6 +129,23 @@ const Teachings = () => {
           </div>
         )}
       </div>
+
+      {selectedVideo && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setSelectedVideo(null)}>
+          <div style={{ position: 'relative', width: '90%', maxWidth: '900px', background: 'var(--bg-surface)', borderRadius: '12px', padding: '2rem', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSelectedVideo(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', zIndex: 10 }}>
+              <X size={24} />
+            </button>
+            <h2 style={{ marginBottom: '0.5rem', marginTop: 0 }}>{selectedVideo.title}</h2>
+            {selectedVideo.series && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>Series: {selectedVideo.series}</p>}
+            <video controls style={{ width: '100%', height: 'auto', maxHeight: '60vh', backgroundColor: 'black', borderRadius: '8px' }}>
+              <source src={selectedVideo.videoUrl} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            {selectedVideo.description && <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>{selectedVideo.description}</p>}
+          </div>
+        </div>
+      )}
     </main>
   );
 };

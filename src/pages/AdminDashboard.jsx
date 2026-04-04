@@ -14,11 +14,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     date: '',
     image: null,
+    videoFile: null,
     type: '',
     videoUrl: '',
     series: '',
@@ -74,11 +76,15 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       const file = files[0];
       setFormData(prev => ({ ...prev, [name]: file }));
       if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result);
-        };
-        reader.readAsDataURL(file);
+        if (name === 'image') {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagePreview(reader.result);
+          };
+          reader.readAsDataURL(file);
+        } else if (name === 'videoFile') {
+          setVideoPreview(file.name);
+        }
       }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -150,6 +156,11 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       return;
     }
 
+    if (!formData.videoFile && !formData.videoUrl) {
+      setMessage('Please provide a video file or video URL');
+      return;
+    }
+
     try {
       const currentAdminId = adminId || localStorage.getItem('adminId');
       const method = editingId ? 'PUT' : 'POST';
@@ -161,9 +172,14 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       payloadData.append('title', formData.title);
       payloadData.append('type', formData.type);
       payloadData.append('description', formData.description);
-      payloadData.append('videoUrl', formData.videoUrl);
+      if (formData.videoUrl && !formData.videoFile) {
+        payloadData.append('videoUrl', formData.videoUrl);
+      }
       if (formData.image) {
         payloadData.append('thumbnail', formData.image);
+      }
+      if (formData.videoFile) {
+        payloadData.append('videoFile', formData.videoFile);
       }
       if (!editingId) {
         payloadData.append('adminId', currentAdminId);
@@ -193,8 +209,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   };
 
   const submitTeaching = async () => {
-    if (!formData.title || !formData.videoUrl) {
-      setMessage('Please fill in title and video URL');
+    if (!formData.title) {
+      setMessage('Please fill in title');
+      return;
+    }
+
+    if (!formData.videoFile && !formData.videoUrl) {
+      setMessage('Please provide a video file or video URL');
       return;
     }
 
@@ -205,20 +226,25 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
         ? `http://localhost:5000/api/teachings/${editingId}`
         : 'http://localhost:5000/api/teachings';
       
-      const payload = {
-        title: formData.title,
-        series: formData.series,
-        duration: formData.duration,
-        videoUrl: formData.videoUrl,
-        description: formData.description,
-        date: formData.date,
-        ...(method === 'POST' && { adminId: currentAdminId })
-      };
+      const payloadData = new FormData();
+      payloadData.append('title', formData.title);
+      payloadData.append('series', formData.series);
+      payloadData.append('duration', formData.duration);
+      payloadData.append('description', formData.description);
+      payloadData.append('date', formData.date);
+      if (formData.videoUrl && !formData.videoFile) {
+        payloadData.append('videoUrl', formData.videoUrl);
+      }
+      if (formData.videoFile) {
+        payloadData.append('videoFile', formData.videoFile);
+      }
+      if (!editingId) {
+        payloadData.append('adminId', currentAdminId);
+      }
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: payloadData
       });
 
       if (!response.ok) {
@@ -262,12 +288,14 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       description: mediaItem.description || '',
       date: '',
       image: null,
+      videoFile: null,
       type: mediaItem.type,
       videoUrl: mediaItem.videoUrl || '',
       series: '',
       duration: ''
     });
     setImagePreview(mediaItem.thumbnail || null);
+    setVideoPreview(null);
     setShowForm(true);
   };
 
@@ -329,12 +357,14 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       description: '',
       date: '',
       image: null,
+      videoFile: null,
       type: '',
       videoUrl: '',
       series: '',
       duration: ''
     });
     setImagePreview(null);
+    setVideoPreview(null);
     setShowForm(false);
     setEditingId(null);
   };
@@ -455,6 +485,12 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
                   </select>
                 </div>
                 <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video File (MP4) *</label>
+                  <input type="file" name="videoFile" onChange={handleInputChange} accept="video/mp4,video/quicktime,video/x-msvideo,.mp4,.mov,.avi" style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
+                  {videoPreview && <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--accent-main)' }}>📁 {videoPreview}</p>}
+                </div>
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>OR</div>
+                <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video URL</label>
                   <input type="url" name="videoUrl" value={formData.videoUrl} onChange={handleInputChange} placeholder="https://youtu.be/..." style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
                 </div>
@@ -478,7 +514,13 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
                   <input type="text" name="date" value={formData.date} onChange={handleInputChange} placeholder="Oct 8" style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video URL *</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video File (MP4) *</label>
+                  <input type="file" name="videoFile" onChange={handleInputChange} accept="video/mp4,video/quicktime,video/x-msvideo,.mp4,.mov,.avi" style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
+                  {videoPreview && <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--accent-main)' }}>📁 {videoPreview}</p>}
+                </div>
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>OR</div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Video URL</label>
                   <input type="url" name="videoUrl" value={formData.videoUrl} onChange={handleInputChange} placeholder="https://youtu.be/..." style={{ width: '100%', padding: '0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)', outline: 'none' }} />
                 </div>
                 <div>

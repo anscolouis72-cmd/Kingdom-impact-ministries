@@ -41,6 +41,20 @@ const upload = multer({
   }
 });
 
+// Multer config for video uploads
+const uploadVideo = multer({
+  storage: storage,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit for videos
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'application/octet-stream'];
+    if (allowedMimes.includes(file.mimetype) || file.originalname.endsWith('.mp4')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed (MP4, MOV, AVI)'));
+    }
+  }
+});
+
 // Serve uploaded images statically
 app.use('/uploads', express.static(uploadsDir));
 
@@ -404,23 +418,41 @@ app.get('/api/media', (req, res) => {
 });
 
 // Create Media (Admin Only)
-app.post('/api/media', upload.single('thumbnail'), (req, res) => {
+app.post('/api/media', uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }]), (req, res) => {
   const { title, type, description, videoUrl, adminId } = req.body;
-  const thumbnailUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  const thumbnailUrl = req.files?.thumbnail ? `/uploads/${req.files.thumbnail[0].filename}` : null;
+  const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : null;
+  const finalVideoUrl = videoFileUrl || videoUrl || '';
   
   if (!title || !type || !adminId) {
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+    if (req.files?.thumbnail) {
+      fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    if (req.files?.videoFile) {
+      fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
     }
     return res.status(400).json({ error: 'Please provide title, type, and adminId' });
   }
 
+  if (!finalVideoUrl) {
+    if (req.files?.thumbnail) {
+      fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    if (req.files?.videoFile) {
+      fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    return res.status(400).json({ error: 'Please provide a video file or video URL' });
+  }
+
   const query = `INSERT INTO media (title, type, description, thumbnail, videoUrl, adminId) VALUES (?, ?, ?, ?, ?, ?)`;
   
-  db.run(query, [title, type, description || '', thumbnailUrl, videoUrl || '', adminId], function(err) {
+  db.run(query, [title, type, description || '', thumbnailUrl, finalVideoUrl, adminId], function(err) {
     if (err) {
-      if (req.file) {
-        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      if (req.files?.thumbnail) {
+        fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
+      if (req.files?.videoFile) {
+        fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
       }
       console.error(err);
       return res.status(500).json({ error: 'Database error' });
@@ -432,7 +464,7 @@ app.post('/api/media', upload.single('thumbnail'), (req, res) => {
       type,
       description,
       thumbnail: thumbnailUrl,
-      videoUrl,
+      videoUrl: finalVideoUrl,
       adminId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -441,49 +473,73 @@ app.post('/api/media', upload.single('thumbnail'), (req, res) => {
 });
 
 // Update Media (Admin Only)
-app.put('/api/media/:id', upload.single('thumbnail'), (req, res) => {
+app.put('/api/media/:id', uploadVideo.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'videoFile', maxCount: 1 }]), (req, res) => {
   const { id } = req.params;
   const { title, type, description, videoUrl } = req.body;
   
   if (!title || !type) {
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+    if (req.files?.thumbnail) {
+      fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    if (req.files?.videoFile) {
+      fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
     }
     return res.status(400).json({ error: 'Please provide title and type' });
   }
 
-  if (req.file) {
-    db.get(`SELECT thumbnail FROM media WHERE id = ?`, [id], (err, row) => {
-      if (!err && row && row.thumbnail) {
+  // Fetch current media to delete old files
+  db.get(`SELECT thumbnail, videoUrl FROM media WHERE id = ?`, [id], (err, row) => {
+    if (!err && row) {
+      // Delete old thumbnail if new one is uploaded
+      if (req.files?.thumbnail && row.thumbnail) {
         const oldImagePath = path.join(__dirname, row.thumbnail);
-        fs.unlink(oldImagePath, (err) => { if (err) console.error('Error deleting old image:', err); });
+        fs.unlink(oldImagePath, (err) => { if (err) console.error('Error deleting old thumbnail:', err); });
       }
-    });
-  }
+      // Delete old video if new one is uploaded
+      if (req.files?.videoFile && row.videoUrl && row.videoUrl.startsWith('/uploads/')) {
+        const oldVideoPath = path.join(__dirname, row.videoUrl);
+        fs.unlink(oldVideoPath, (err) => { if (err) console.error('Error deleting old video:', err); });
+      }
+    }
+  });
 
-  const thumbnailUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+  const thumbnailUrl = req.files?.thumbnail ? `/uploads/${req.files.thumbnail[0].filename}` : undefined;
+  const videoFileUrl = req.files?.videoFile ? `/uploads/${req.files.videoFile[0].filename}` : undefined;
+  const finalVideoUrl = videoFileUrl || videoUrl || undefined;
   
   let query, params;
-  if (thumbnailUrl) {
+  if (thumbnailUrl && finalVideoUrl) {
     query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, videoUrl = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
-    params = [title, type, description || '', thumbnailUrl, videoUrl || '', id];
-  } else {
+    params = [title, type, description || '', thumbnailUrl, finalVideoUrl, id];
+  } else if (thumbnailUrl) {
+    query = `UPDATE media SET title = ?, type = ?, description = ?, thumbnail = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+    params = [title, type, description || '', thumbnailUrl, id];
+  } else if (finalVideoUrl) {
     query = `UPDATE media SET title = ?, type = ?, description = ?, videoUrl = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
-    params = [title, type, description || '', videoUrl || '', id];
+    params = [title, type, description || '', finalVideoUrl, id];
+  } else {
+    query = `UPDATE media SET title = ?, type = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+    params = [title, type, description || '', id];
   }
   
   db.run(query, params, function(err) {
     if (err) {
-      if (req.file) {
-        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      if (req.files?.thumbnail) {
+        fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
+      if (req.files?.videoFile) {
+        fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
       }
       console.error(err);
       return res.status(500).json({ error: 'Database error' });
     }
     
     if (this.changes === 0) {
-      if (req.file) {
-        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      if (req.files?.thumbnail) {
+        fs.unlink(req.files.thumbnail[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
+      if (req.files?.videoFile) {
+        fs.unlink(req.files.videoFile[0].path, (err) => { if (err) console.error('Error deleting file:', err); });
       }
       return res.status(404).json({ error: 'Media not found' });
     }
@@ -496,10 +552,18 @@ app.put('/api/media/:id', upload.single('thumbnail'), (req, res) => {
 app.delete('/api/media/:id', (req, res) => {
   const { id } = req.params;
   
-  db.get(`SELECT thumbnail FROM media WHERE id = ?`, [id], (err, row) => {
-    if (!err && row && row.thumbnail) {
-      const imagePath = path.join(__dirname, row.thumbnail);
-      fs.unlink(imagePath, (err) => { if (err) console.error('Error deleting image:', err); });
+  db.get(`SELECT thumbnail, videoUrl FROM media WHERE id = ?`, [id], (err, row) => {
+    if (!err && row) {
+      // Delete thumbnail if it exists
+      if (row.thumbnail) {
+        const imagePath = path.join(__dirname, row.thumbnail);
+        fs.unlink(imagePath, (err) => { if (err) console.error('Error deleting thumbnail:', err); });
+      }
+      // Delete video file if it's a local file
+      if (row.videoUrl && row.videoUrl.startsWith('/uploads/')) {
+        const videoPath = path.join(__dirname, row.videoUrl);
+        fs.unlink(videoPath, (err) => { if (err) console.error('Error deleting video:', err); });
+      }
     }
   });
   
@@ -538,17 +602,32 @@ app.get('/api/teachings', (req, res) => {
 });
 
 // Create Teaching (Admin Only)
-app.post('/api/teachings', (req, res) => {
+app.post('/api/teachings', uploadVideo.single('videoFile'), (req, res) => {
   const { title, series, duration, videoUrl, description, date, adminId } = req.body;
+  const videoFileUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  const finalVideoUrl = videoFileUrl || videoUrl || '';
   
-  if (!title || !videoUrl || !adminId) {
-    return res.status(400).json({ error: 'Please provide title, videoUrl, and adminId' });
+  if (!title || !adminId) {
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    return res.status(400).json({ error: 'Please provide title and adminId' });
+  }
+
+  if (!finalVideoUrl) {
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    return res.status(400).json({ error: 'Please provide a video file or video URL' });
   }
 
   const query = `INSERT INTO teachings (title, series, duration, videoUrl, description, date, adminId) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   
-  db.run(query, [title, series || '', duration || '', videoUrl, description || '', date || new Date().toISOString().split('T')[0], adminId], function(err) {
+  db.run(query, [title, series || '', duration || '', finalVideoUrl, description || '', date || new Date().toISOString().split('T')[0], adminId], function(err) {
     if (err) {
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
       console.error(err);
       return res.status(500).json({ error: 'Database error' });
     }
@@ -558,7 +637,7 @@ app.post('/api/teachings', (req, res) => {
       title,
       series,
       duration,
-      videoUrl,
+      videoUrl: finalVideoUrl,
       description,
       date,
       adminId,
@@ -569,24 +648,44 @@ app.post('/api/teachings', (req, res) => {
 });
 
 // Update Teaching (Admin Only)
-app.put('/api/teachings/:id', (req, res) => {
+app.put('/api/teachings/:id', uploadVideo.single('videoFile'), (req, res) => {
   const { id } = req.params;
   const { title, series, duration, videoUrl, description, date } = req.body;
   
-  if (!title || !videoUrl) {
-    return res.status(400).json({ error: 'Please provide title and videoUrl' });
+  if (!title) {
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+    }
+    return res.status(400).json({ error: 'Please provide title' });
   }
 
+  // Fetch current teaching to delete old video if needed
+  db.get(`SELECT videoUrl FROM teachings WHERE id = ?`, [id], (err, row) => {
+    if (!err && row && req.file && row.videoUrl && row.videoUrl.startsWith('/uploads/')) {
+      const oldVideoPath = path.join(__dirname, row.videoUrl);
+      fs.unlink(oldVideoPath, (err) => { if (err) console.error('Error deleting old video:', err); });
+    }
+  });
+
+  const videoFileUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+  const finalVideoUrl = videoFileUrl || videoUrl;
+
   const query = `UPDATE teachings SET title = ?, series = ?, duration = ?, videoUrl = ?, description = ?, date = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
-  const params = [title, series || '', duration || '', videoUrl, description || '', date || new Date().toISOString().split('T')[0], id];
+  const params = [title, series || '', duration || '', finalVideoUrl || '', description || '', date || new Date().toISOString().split('T')[0], id];
   
   db.run(query, params, function(err) {
     if (err) {
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
       console.error(err);
       return res.status(500).json({ error: 'Database error' });
     }
     
     if (this.changes === 0) {
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => { if (err) console.error('Error deleting file:', err); });
+      }
       return res.status(404).json({ error: 'Teaching not found' });
     }
     
@@ -597,6 +696,15 @@ app.put('/api/teachings/:id', (req, res) => {
 // Delete Teaching (Admin Only)
 app.delete('/api/teachings/:id', (req, res) => {
   const { id } = req.params;
+  
+  // Fetch teaching to delete video file if it's local
+  db.get(`SELECT videoUrl FROM teachings WHERE id = ?`, [id], (err, row) => {
+    if (!err && row && row.videoUrl && row.videoUrl.startsWith('/uploads/')) {
+      const videoPath = path.join(__dirname, row.videoUrl);
+      fs.unlink(videoPath, (err) => { if (err) console.error('Error deleting video:', err); });
+    }
+  });
+  
   const query = `DELETE FROM teachings WHERE id = ?`;
   
   db.run(query, [id], function(err) {
