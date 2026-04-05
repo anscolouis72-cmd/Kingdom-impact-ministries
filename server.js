@@ -20,21 +20,41 @@ function logError(message, err) {
 }
 
 // Email Configuration
+const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com';
+const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password';
+
+const hasValidPassword = emailPassword !== 'your-app-password' && emailPassword !== 'your-app-specific-password-here' && emailPassword.length > 10;
+console.log(`📧 Email Configuration: User=${emailUser}, Password=${hasValidPassword ? '✓ Configured' : '❌ PLACEHOLDER (fix .env)'}`);
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || 'your-app-password'
+    user: emailUser,
+    pass: emailPassword
   }
 });
 
-// Function to send verification email
+// Temporary storage for pending admin signups
+const pendingAdminSignups = new Map(); // { email: { name, password, adminCode, token, expiry, timestamp } }
+const pendingSignups = new Map(); // { email: { name, password, token, expiry, timestamp } }
+
+const ADMIN_SECRET_CODE = 'KIM2024ADMIN'; // Change this to your secret code
+
+// Send Verification Email Function
 async function sendVerificationEmail(email, name, verificationToken) {
   try {
+    console.log(`🔄 Attempting to send verification email to: ${email}`);
+    
+    if (!hasValidPassword) {
+      console.error(`❌ EMAIL SENDING FAILED: .env has placeholder password. Set EMAIL_PASSWORD to your Gmail App Password`);
+      logError('Email sending blocked', 'Placeholder password in .env file');
+      return false;
+    }
+
     const verificationLink = `http://localhost:3000/signup?verify=${verificationToken}&email=${encodeURIComponent(email)}`;
     
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      from: `Kingdom Impact Ministries (KIM) <${emailUser}>`,
       to: email,
       subject: 'Kingdom Impact Ministries - Email Verification',
       html: `
@@ -73,11 +93,11 @@ async function sendVerificationEmail(email, name, verificationToken) {
     };
     
     await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${email}`);
+    console.log(`✅ Verification email sent successfully to ${email}`);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
-    logError('Email sending error', error);
+    console.error(`❌ Error sending email to ${email}:`, error.message);
+    logError(`Email sending failed for ${email}`, error);
     return false;
   }
 }
@@ -313,7 +333,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 // Utility function to generate verification token
 function generateVerificationToken() {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  // Generate 6-digit numeric code
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 // Utility function to validate email format
@@ -323,7 +344,7 @@ function isValidEmail(email) {
 }
 
 // Signup Endpoint
-app.post('/api/signup', (req, res) => {
+app.post('/api/signup', async (req, res) => {
   const { name, email, password } = req.body;
   
   if (!name || !email || !password) {
@@ -340,36 +361,120 @@ app.post('/api/signup', (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters long' });
   }
 
-  const verificationToken = generateVerificationToken();
-  const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
-
-  const query = `INSERT INTO users (name, email, password, verified, verification_token, token_expiry) VALUES (?, ?, ?, ?, ?, ?)`;
-  
-  db.run(query, [name, email, password, 0, verificationToken, tokenExpiry], async function(err) {
+  // Check if email already exists in database (already verified accounts)
+  const checkQuery = `SELECT id FROM users WHERE email = ?`;
+  db.get(checkQuery, [email], async (err, existingUser) => {
     if (err) {
-      if (err.message.includes('UNIQUE constraint failed')) {
-        return res.status(409).json({ error: 'An account with this email already exists in the database!' });
-      }
-      return res.status(500).json({ error: 'Database server error' });
+      return res.status(500).json({ error: 'Database error' });
     }
-    
+
+    if (existingUser) {
+      return res.status(409).json({ error: 'An account with this email already exists!' });
+    }
+
+    // Check if email is already pending verification
+    if (pendingSignups.has(email)) {
+      return res.status(409).json({ 
+        error: 'This email has already signed up. Please check your inbox for the verification code.',
+        alreadyPending: true,
+        suggestion: 'Use the Resend Code option if you did not receive the email.'
+      });
+    }
+
+    const verificationToken = generateVerificationToken();
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    // Store signup data temporarily (NOT in database yet)
+    pendingSignups.set(email, {
+      name,
+      email,
+      password,
+      verification_token: verificationToken,
+      token_expiry: tokenExpiry,
+      timestamp: Date.now()
+    });
+
     // Send verification email
     const emailSent = await sendVerificationEmail(email, name, verificationToken);
-    
-    res.status(201).json({ 
-      id: this.lastID, 
-      name, 
-      email,
-      verified: 0,
-      message: emailSent 
-        ? `Account created! A verification email has been sent to ${email}. Please check your email and enter the verification code.`
-        : `Account created! However, email sending failed. Please use this code to verify: ${verificationToken}`,
-      emailSent: emailSent
+
+    res.status(201).json({
+      message: emailSent
+        ? `Verification email sent to ${email}. Please check your inbox and verify your email to complete registration.`
+        : `Email sending failed. Please use this code to verify: ${verificationToken}`,
+      emailSent: emailSent,
+      requiresVerification: true
     });
   });
 });
 
-// Email Verification Endpoint
+// Admin Registration Endpoint (requires secret admin code)
+app.post('/api/admin/register', async (req, res) => {
+  const { name, email, password, adminCode } = req.body;
+  
+  if (!name || !email || !password || !adminCode) {
+    return res.status(400).json({ error: 'Please provide all details including admin code' });
+  }
+
+  // Verify admin code
+  if (adminCode !== ADMIN_SECRET_CODE) {
+    return res.status(403).json({ error: 'Invalid admin code' });
+  }
+
+  // Check if email already exists in database (already verified accounts)
+  const checkQuery = `SELECT id FROM users WHERE email = ? AND role = 'admin' AND verified = 1`;
+  db.get(checkQuery, [email], async (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (user) {
+      return res.status(409).json({ error: 'An admin account with this email already exists!' });
+    }
+
+    // Check if email is already pending verification
+    if (pendingAdminSignups.has(email)) {
+      return res.status(409).json({ 
+        error: 'This email is already pending admin verification. Please check your inbox for the verification code.',
+        alreadyPending: true,
+        suggestion: 'Use the Resend Code option if you did not receive the email.'
+      });
+    }
+
+    // Generate verification token (6-digit code)
+    const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    try {
+      // Send verification email
+      const emailSent = await sendVerificationEmail(email, name, verificationToken);
+      
+      if (!emailSent) {
+        return res.status(500).json({ error: 'Failed to send verification email. Please check email configuration.' });
+      }
+      
+      // Store admin signup data temporarily (NOT in database yet)
+      pendingAdminSignups.set(email, {
+        name,
+        email,
+        password,
+        verification_token: verificationToken,
+        token_expiry: tokenExpiry,
+        timestamp: Date.now()
+      });
+      
+      res.status(201).json({ 
+        message: `Verification email sent to ${email}. Please check your inbox and verify your email to complete admin registration.`,
+        emailSent: emailSent,
+        requiresVerification: true
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Error during registration' });
+    }
+  });
+});
+
+// Email Verification Endpoint (handles both regular users and admins)
 app.post('/api/verify-email', (req, res) => {
   const { email, token } = req.body;
 
@@ -377,43 +482,99 @@ app.post('/api/verify-email', (req, res) => {
     return res.status(400).json({ error: 'Email and verification token required' });
   }
 
-  const query = `SELECT id, verified, token_expiry FROM users WHERE email = ? AND verification_token = ?`;
+  // Check if email is in pending admin signups first
+  const pendingAdminSignup = pendingAdminSignups.get(email);
+  const pendingRegularSignup = pendingSignups.get(email);
 
-  db.get(query, [email, token], (err, user) => {
+  if (!pendingAdminSignup && !pendingRegularSignup) {
+    return res.status(401).json({ error: 'Invalid email or no pending signup found. Please sign up first.' });
+  }
+
+  const pendingSignup = pendingAdminSignup || pendingRegularSignup;
+  const isAdminSignup = !!pendingAdminSignup;
+
+  // Check if token matches
+  if (pendingSignup.verification_token !== token) {
+    return res.status(401).json({ error: 'Invalid verification token' });
+  }
+
+  // Check if token expired
+  const now = new Date();
+  const expiry = new Date(pendingSignup.token_expiry);
+  if (now > expiry) {
+    if (isAdminSignup) {
+      pendingAdminSignups.delete(email);
+    } else {
+      pendingSignups.delete(email);
+    }
+    return res.status(401).json({ error: 'Verification token has expired. Please sign up again.' });
+  }
+
+  // Create the user in database after verification
+  const role = isAdminSignup ? 'admin' : 'user';
+  const query = `INSERT INTO users (name, email, password, role, verified, verification_token, token_expiry) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  db.run(query, [pendingSignup.name, email, pendingSignup.password, role, 1, null, null], function(err) {
     if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database query error' });
-    }
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid verification token or email' });
-    }
-
-    if (user.verified === 1) {
-      return res.status(400).json({ error: 'Email already verified' });
-    }
-
-    // Check if token expired
-    const now = new Date();
-    const expiry = new Date(user.token_expiry);
-    if (now > expiry) {
-      return res.status(401).json({ error: 'Verification token has expired. Please sign up again.' });
-    }
-
-    // Mark email as verified
-    const updateQuery = `UPDATE users SET verified = 1, verification_token = NULL, token_expiry = NULL WHERE email = ?`;
-
-    db.run(updateQuery, [email], (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Failed to verify email' });
+      console.error('Error creating verified user:', err);
+      if (err.message.includes('UNIQUE constraint failed')) {
+        return res.status(409).json({ error: 'An account with this email already exists!' });
       }
+      return res.status(500).json({ error: 'Failed to create account' });
+    }
 
-      res.status(200).json({ 
-        message: 'Email verified successfully! You can now log in.',
-        verified: true
+    // Remove from pending signups
+    if (isAdminSignup) {
+      pendingAdminSignups.delete(email);
+      res.status(200).json({
+        message: 'Email verified successfully! Your admin account has been created. You can now log in.',
+        verified: true,
+        userId: this.lastID,
+        role: 'admin'
       });
-    });
+    } else {
+      pendingSignups.delete(email);
+      res.status(200).json({
+        message: 'Email verified successfully! Your account has been created. You can now log in.',
+        verified: true,
+        userId: this.lastID
+      });
+    }
+  });
+});
+
+// Resend Verification Code Endpoint
+app.post('/api/resend-verification-code', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // Check if email is in pending signups
+  const pendingSignup = pendingSignups.get(email);
+
+  if (!pendingSignup) {
+    return res.status(404).json({ error: 'No pending signup found for this email. Please sign up first.' });
+  }
+
+  // Generate new verification token
+  const newVerificationToken = generateVerificationToken();
+  const newTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  // Update pending signup with new token
+  pendingSignup.verification_token = newVerificationToken;
+  pendingSignup.token_expiry = newTokenExpiry;
+  pendingSignups.set(email, pendingSignup);
+
+  // Send verification email again
+  const emailSent = await sendVerificationEmail(email, pendingSignup.name, newVerificationToken);
+
+  res.json({
+    message: emailSent
+      ? `Verification code resent to ${email}. Please check your inbox.`
+      : `Email sending failed. Use this code to verify: ${newVerificationToken}`,
+    emailSent: emailSent
   });
 });
 
@@ -445,45 +606,11 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Admin Registration Endpoint (requires secret admin code)
-const ADMIN_SECRET_CODE = 'KIM2024ADMIN'; // Change this to your secret code
-app.post('/api/admin/register', (req, res) => {
-  const { name, email, password, adminCode } = req.body;
-  
-  if (!name || !email || !password || !adminCode) {
-    return res.status(400).json({ error: 'Please provide all details including admin code' });
-  }
-
-  // Verify admin code
-  if (adminCode !== ADMIN_SECRET_CODE) {
-    return res.status(403).json({ error: 'Invalid admin code' });
-  }
-
-  const query = `INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')`;
-  
-  db.run(query, [name, email, password], function(err) {
-    if (err) {
-      if (err.message.includes('UNIQUE constraint failed')) {
-        return res.status(409).json({ error: 'An account with this email already exists!' });
-      }
-      return res.status(500).json({ error: 'Database server error' });
-    }
-    
-    res.status(201).json({ 
-      id: this.lastID, 
-      name, 
-      email,
-      role: 'admin',
-      message: 'Admin account created successfully'
-    });
-  });
-});
-
 // Admin Login Endpoint
 app.post('/api/admin/login', (req, res) => {
   const { email, password } = req.body;
   
-  const query = `SELECT id, name, email, role FROM users WHERE email = ? AND password = ? AND role = 'admin'`;
+  const query = `SELECT id, name, email, role, verified FROM users WHERE email = ? AND password = ? AND role = 'admin'`;
   
   db.get(query, [email, password], (err, user) => {
     if (err) {
@@ -495,10 +622,16 @@ app.post('/api/admin/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid email, password, or not an admin' });
     }
     
+    // Check if email is verified
+    if (!user.verified) {
+      return res.status(403).json({ error: 'Please verify your email before logging in. Check your email for the verification code.' });
+    }
+    
     res.status(200).json(user);
   });
 });
 
+// Admin Email Verification Endpoint
 // Get All Announcements (Public)
 app.get('/api/announcements', (req, res) => {
   const query = `SELECT * FROM announcements ORDER BY date DESC`;
@@ -1102,13 +1235,16 @@ app.delete('/api/teachings/:id', (req, res) => {
 });
 
 // ============================================
-// Bible API Endpoints - Using GitHub CDN
+// Bible API Endpoints - Using Multiple Sources
 // ============================================
 
 const https = require('https');
+const http = require('http');
 
-// Bible API Configuration - using GitHub CDN
-const BIBLE_API_BASE = 'https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles';
+// Bible API Configuration - using multiple endpoints for reliability
+const BIBLE_API_PRIMARY = 'https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles';
+const BIBLE_API_FALLBACK = 'https://raw.githubusercontent.com/wldeh/bible-api/master/bibles';
+const BIBLE_API_ALT = 'https://unpkg.com/bible-api/bibles'; // Alternative CDN
 const DEFAULT_BIBLE_VERSION = 'en-kjv'; // King James Version (default)
 
 // Available Bible versions
@@ -1130,10 +1266,10 @@ const AVAILABLE_VERSIONS = [
   { code: 'es-rvg', name: 'Spanish Reina Valera (RVG)', language: 'Spanish' },
 ];
 
-// Helper function to fetch from GitHub CDN
-const fetchFromBibleAPI = (url) => {
+// Helper function to fetch from URL with fallback support
+const fetchFromUrl = (url, protocol = https) => {
   return new Promise((resolve, reject) => {
-    https.get(url, { timeout: 5000 }, (res) => {
+    protocol.get(url, { timeout: 5000 }, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
@@ -1150,6 +1286,34 @@ const fetchFromBibleAPI = (url) => {
   });
 };
 
+// Helper function to fetch from Bible API with multiple fallback URLs
+const fetchFromBibleAPI = async (url) => {
+  // Try primary CDN first
+  try {
+    return await fetchFromUrl(url, https);
+  } catch (error) {
+    console.log('Primary CDN failed, trying fallback URL 1');
+  }
+  
+  // Build fallback URL by replacing CDN with raw GitHub
+  const fallbackUrl1 = url.replace(BIBLE_API_PRIMARY, BIBLE_API_FALLBACK);
+  try {
+    return await fetchFromUrl(fallbackUrl1, https);
+  } catch (error) {
+    console.log('Fallback URL 1 failed, trying alternative CDN');
+  }
+  
+  // Try alternative CDN
+  const fallbackUrl2 = url.replace(BIBLE_API_PRIMARY, BIBLE_API_ALT);
+  try {
+    return await fetchFromUrl(fallbackUrl2, https);
+  } catch (error) {
+    console.log('Alternative CDN also failed');
+  }
+  
+  throw new Error(`Failed to fetch from all sources`);
+};
+
 // Helper function to clean verse text of footnote markers and extra formatting
 const cleanVerseText = (text) => {
   if (!text) return text;
@@ -1164,6 +1328,45 @@ const cleanVerseText = (text) => {
   text = text.replace(/\s+/g, ' ').trim();
   
   return text;
+};
+
+// Cache for dynamically loaded Bible chapters
+const bibleCache = {};
+
+// Helper function to fetch a complete chapter from API and cache it
+const fetchAndCacheChapter = async (version, book, chapter) => {
+  const cacheKey = `${version}:${book}:${chapter}`;
+  
+  // Return from cache if already loaded
+  if (bibleCache[cacheKey]) {
+    return bibleCache[cacheKey];
+  }
+  
+  try {
+    console.log(`Fetching chapter: ${book} ${chapter} [${version}]`);
+    const apiUrl = `${BIBLE_API_PRIMARY}/${version}/books/${book}/chapters/${chapter}.json`;
+    const chapterData = await fetchFromBibleAPI(apiUrl);
+    
+    if (chapterData && chapterData.verses && Array.isArray(chapterData.verses)) {
+      // Transform and cache the verses
+      const verses = chapterData.verses.map(v => ({
+        reference: `${getDisplayBookName(book)} ${chapter}:${v.verse}`,
+        book: book,
+        chapter: parseInt(chapter),
+        verse: parseInt(v.verse),
+        text: cleanVerseText(v.text),
+        translation: version.toUpperCase()
+      }));
+      
+      bibleCache[cacheKey] = verses;
+      console.log(`Cached ${verses.length} verses from ${book} ${chapter}`);
+      return verses;
+    }
+  } catch (error) {
+    console.log(`Failed to fetch chapter ${book}:${chapter} - ${error.message}`);
+  }
+  
+  return null;
 };
 
 // Get available Bible versions
@@ -1194,12 +1397,12 @@ const getDisplayBookName = (bookCode) => {
   return displayNames[bookCode] || bookCode;
 };
 
-// Parse verse reference (e.g., "John 3:16" -> {book, chapter, verse})
+// Parse verse reference (e.g., "John 3:16" or "1 John 1:2" -> {book, chapter, verse})
 const parseVerseReference = (reference) => {
   // Try to parse verse range first: "Book Chapter:StartVerse - EndVerse"
-  const rangeMatch = reference.match(/(\w+)\s+(\d+):(\d+)\s*-\s*(\d+)/i);
+  const rangeMatch = reference.match(/([0-9]?\s*\w+)\s+(\d+):(\d+)\s*-\s*(\d+)/i);
   if (rangeMatch) {
-    const bookName = rangeMatch[1].toLowerCase();
+    const bookName = rangeMatch[1].toLowerCase().replace(/\s+/g, '');
     const chapter = rangeMatch[2];
     const startVerse = rangeMatch[3];
     const endVerse = rangeMatch[4];
@@ -1233,11 +1436,11 @@ const parseVerseReference = (reference) => {
     };
   }
   
-  // Fall back to single verse: "Book Chapter:Verse"
-  const singleMatch = reference.match(/(\w+)\s+(\d+):(\d+)/i);
+  // Fall back to single verse: "Book Chapter:Verse" (supports "1 John 3:16" format)
+  const singleMatch = reference.match(/([0-9]?\s*\w+)\s+(\d+):(\d+)/i);
   if (!singleMatch) return null;
   
-  const bookName = singleMatch[1].toLowerCase();
+  const bookName = singleMatch[1].toLowerCase().replace(/\s+/g, '');
   const chapter = singleMatch[2];
   const verse = singleMatch[3];
   
@@ -1313,6 +1516,47 @@ const verseLibrary = [
   { reference: "Psalm 33:22", book: "psalms", chapter: 33, verse: 22, text: "Let thy mercy, O LORD, be upon us, according as we hope in thee.", translation: "KJV" },
   { reference: "Psalm 42:11", book: "psalms", chapter: 42, verse: 11, text: "Why art thou cast down, O my soul? and why art thou disquieted within me? hope thou in God: for I shall yet praise him for the help of his countenance.", translation: "KJV" },
   { reference: "Isaiah 53:5", book: "isaiah", chapter: 53, verse: 5, text: "But he was wounded for our transgressions, he was bruised for our iniquities: the chastisement of our peace was upon him; and with his stripes we are healed.", translation: "KJV" },
+  { reference: "1 Timothy 2:15", book: "1-timothy", chapter: 2, verse: 15, text: "Study to shew thyself approved unto God, a workman that needeth not to be ashamed, rightly dividing the word of truth.", translation: "KJV" },
+  { reference: "2 Timothy 2:15", book: "2-timothy", chapter: 2, verse: 15, text: "Study to shew thyself approved unto God, a workman that needeth not to be ashamed, rightly dividing the word of truth.", translation: "KJV" },
+  { reference: "1 Timothy 6:12", book: "1-timothy", chapter: 6, verse: 12, text: "Fight the good fight of faith, lay hold on eternal life, whereunto thou art also called, and hast professed a good profession before many witnesses.", translation: "KJV" },
+  { reference: "3 John 1:2", book: "3-john", chapter: 1, verse: 2, text: "Beloved, I wish above all things that thou mayest prosper and be in health, even as thy soul prospereth.", translation: "KJV" },
+  { reference: "Jude 1:24", book: "jude", chapter: 1, verse: 24, text: "Now unto him that is able to keep you from falling, and to present you faultless before the presence of his glory with exceeding joy.", translation: "KJV" },
+  { reference: "1 John 1:9", book: "1-john", chapter: 1, verse: 9, text: "If we confess our sins, he is faithful and just to forgive us our sins, and to cleanse us from all unrighteousness.", translation: "KJV" },
+  { reference: "1 Corinthians 13:4", book: "1-corinthians", chapter: 13, verse: 4, text: "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up.", translation: "KJV" },
+  { reference: "2 Corinthians 5:17", book: "2-corinthians", chapter: 5, verse: 17, text: "Therefore if any man be in Christ, he is a new creature: old things are passed away; behold, all things are become new.", translation: "KJV" },
+  { reference: "1 Peter 3:15", book: "1-peter", chapter: 3, verse: 15, text: "But sanctify the Lord God in your hearts: and be ready always to give an answer to every man that asketh you a reason of the hope that is in you with meekness and fear.", translation: "KJV" },
+  { reference: "1 Thessalonians 5:17", book: "1-thessalonians", chapter: 5, verse: 17, text: "Pray without ceasing.", translation: "KJV" },
+  { reference: "2 Peter 3:18", book: "2-peter", chapter: 3, verse: 18, text: "But grow in grace, and in the knowledge of our Lord and Saviour Jesus Christ. To him be glory both now and for ever. Amen.", translation: "KJV" },
+  { reference: "1 John 4:7", book: "1-john", chapter: 4, verse: 7, text: "Beloved, let us love one another: for love is of God; and every one that loveth is born of God, and knoweth God.", translation: "KJV" },
+  { reference: "1 Samuel 17:47", book: "1-samuel", chapter: 17, verse: 47, text: "And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD's, and he will give you into our hands.", translation: "KJV" },
+  { reference: "2 Samuel 22:29", book: "2-samuel", chapter: 22, verse: 29, text: "For thou art my lamp, O LORD: and the LORD will lighten my darkness.", translation: "KJV" },
+  { reference: "1 Kings 19:12", book: "1-kings", chapter: 19, verse: 12, text: "And after the earthquake a fire; but the LORD was not in the fire: and after the fire a still small voice.", translation: "KJV" },
+  { reference: "2 Kings 6:16", book: "2-kings", chapter: 6, verse: 16, text: "And he answered, Fear not: for they that be with us are more than they that be with them.", translation: "KJV" },
+  { reference: "1 Chronicles 28:9", book: "1-chronicles", chapter: 28, verse: 9, text: "And thou, Solomon my son, know thou the God of thy father, and serve him with a perfect heart and with a willing mind: for the LORD searcheth all hearts, and understandeth all the imaginations of the thoughts: if thou seek him, he will be found of thee; but if thou forsake him, he will cast thee off for ever.", translation: "KJV" },
+  { reference: "2 Chronicles 7:14", book: "2-chronicles", chapter: 7, verse: 14, text: "If my people, which are called by my name, shall humble themselves, and pray, and seek my face, and turn from their wicked ways; then will I hear from heaven, and will forgive their sin, and will heal their land.", translation: "KJV" },
+  { reference: "2 Thessalonians 2:16", book: "2-thessalonians", chapter: 2, verse: 16, text: "Now our Lord Jesus Christ himself, and God, even our Father, which hath loved us, and hath given us everlasting consolation and good hope through grace.", translation: "KJV" },
+  { reference: "2 John 1:6", book: "2-john", chapter: 1, verse: 6, text: "And this is love, that we walk after his commandments. This is the commandment, That, as ye have heard from the beginning, ye should walk in it.", translation: "KJV" },
+  { reference: "1 Samuel 15:22", book: "1-samuel", chapter: 15, verse: 22, text: "And Samuel said, Hath the LORD as great delight in burnt offerings and sacrifices, as in obeying the voice of the LORD? Behold, to obey is better than sacrifice, and to hearken than the fat of rams.", translation: "KJV" },
+  { reference: "2 Samuel 12:25", book: "2-samuel", chapter: 12, verse: 25, text: "And he sent by the hand of Nathan the prophet; and he called his name Jedidiah, because of the LORD.", translation: "KJV" },
+  { reference: "1 Kings 8:39", book: "1-kings", chapter: 8, verse: 39, text: "Then hear thou in heaven thy dwelling place, and forgive, and do, and give to every man according to his ways, whose heart thou knowest; (for thou, even thou only, knowest the hearts of all the children of men;)", translation: "KJV" },
+  { reference: "2 Kings 5:16", book: "2-kings", chapter: 5, verse: 16, text: "But he said, As the LORD liveth, before whom I stand, I will receive none. And he urged him to take it; but he refused.", translation: "KJV" },
+  { reference: "1 Chronicles 16:11", book: "1-chronicles", chapter: 16, verse: 11, text: "Seek the LORD and his strength, seek his face continually.", translation: "KJV" },
+  { reference: "2 Chronicles 30:9", book: "2-chronicles", chapter: 30, verse: 9, text: "For if ye turn again unto the LORD, your brethren and your children shall find compassion before them that lead them captive, and shall come again into this land: for the LORD your God is gracious and merciful, and will not turn away his face from you, if ye return unto him.", translation: "KJV" },
+  { reference: "1 Corinthians 10:13", book: "1-corinthians", chapter: 10, verse: 13, text: "There hath no temptation taken you but such as is common to man: but God is faithful, who will not suffer you to be tempted above that ye are able; but will with the temptation also make a way to escape, that ye may be able to bear it.", translation: "KJV" },
+  { reference: "2 Corinthians 12:9", book: "2-corinthians", chapter: 12, verse: 9, text: "And he said unto me, My grace is sufficient for thee: for my strength is made perfect in weakness. Most gladly therefore will I rather glory in my infirmities, that the power of Christ may rest upon me.", translation: "KJV" },
+  { reference: "1 Thessalonians 4:16", book: "1-thessalonians", chapter: 4, verse: 16, text: "For the Lord himself shall descend from heaven with a shout, with the voice of the archangel, and with the trump of God: and the dead in Christ shall rise first.", translation: "KJV" },
+  { reference: "2 Thessalonians 3:3", book: "2-thessalonians", chapter: 3, verse: 3, text: "But the Lord is faithful, who shall stablish you, and keep you from evil.", translation: "KJV" },
+  { reference: "1 Timothy 4:12", book: "1-timothy", chapter: 4, verse: 12, text: "Let no man despise thy youth; but be thou an example of the believers, in word, in conversation, in charity, in spirit, in faith, in purity.", translation: "KJV" },
+  { reference: "2 Timothy 1:7", book: "2-timothy", chapter: 1, verse: 7, text: "For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind.", translation: "KJV" },
+  { reference: "1 Peter 1:8", book: "1-peter", chapter: 1, verse: 8, text: "Whom having not seen, ye love; in whom, though now ye see him not, yet believing, ye rejoice with joy unspeakable and full of glory.", translation: "KJV" },
+  { reference: "2 Peter 1:19", book: "2-peter", chapter: 1, verse: 19, text: "We have also a more sure word of prophecy; whereunto ye do well that ye take heed, as unto a light that shineth in a dark place, until the day dawn, and the day star arise in your hearts.", translation: "KJV" },
+  { reference: "1 John 3:1", book: "1-john", chapter: 3, verse: 1, text: "Behold, what manner of love the Father hath bestowed upon us, that we should be called the sons of God: therefore the world knoweth us not, because it knew him not.", translation: "KJV" },
+  { reference: "1 John 5:11", book: "1-john", chapter: 5, verse: 11, text: "And this is the record, that God hath given to us eternal life, and this life is in his Son.", translation: "KJV" },
+  { reference: "3 John 1:4", book: "3-john", chapter: 1, verse: 4, text: "I have no greater joy than to hear that my children walk in truth.", translation: "KJV" },
+  { reference: "1 Samuel 7:12", book: "1-samuel", chapter: 7, verse: 12, text: "Then Samuel took a stone, and set it between Mizpeh and Shen, and called the name of it Ebenezer, saying, Hitherto hath the LORD helped us.", translation: "KJV" },
+  { reference: "2 Samuel 22:2", book: "2-samuel", chapter: 22, verse: 2, text: "And he said, The LORD is my rock, and my fortress, and my deliverer.", translation: "KJV" },
+  { reference: "1 Kings 18:21", book: "1-kings", chapter: 18, verse: 21, text: "And Elijah came unto all the people, and said, How long halt ye between two opinions? if the LORD be God, follow him: but if Baal, then follow him. And the people answered him not a word.", translation: "KJV" },
+  { reference: "2 Kings 3:11", book: "2-kings", chapter: 3, verse: 11, text: "But Jehoshaphat said, Is there not here a prophet of the LORD, that we may enquire of the LORD by him? And one of the king of Israel's servants answered and said, Here is Elisha the son of Shaphat, which poured water on the hands of Elijah.", translation: "KJV" },
 ];
 
 // Get daily verse of the day
@@ -1327,7 +1571,7 @@ app.get('/api/bible/verse-of-day', async (req, res) => {
     
     // Try to fetch from API for more details
     try {
-      const apiUrl = `${BIBLE_API_BASE}/${version}/books/${verse.book}/chapters/${verse.chapter}/verses/${verse.verse}.json`;
+      const apiUrl = `${BIBLE_API_PRIMARY}/${version}/books/${verse.book}/chapters/${verse.chapter}/verses/${verse.verse}.json`;
       const apiData = await fetchFromBibleAPI(apiUrl);
       
       if (apiData && apiData.text) {
@@ -1375,22 +1619,34 @@ app.get('/api/bible/search', async (req, res) => {
           const startVerse = parseInt(parsed.startVerse);
           const endVerse = parseInt(parsed.endVerse);
           
-          for (let v = startVerse; v <= endVerse; v++) {
-            const apiUrl = `${BIBLE_API_BASE}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${v}.json`;
-            console.log('Fetching:', apiUrl);
-            try {
-              const verseData = await fetchFromBibleAPI(apiUrl);
-              if (verseData && verseData.text) {
-                results.push({
-                  reference: `${getDisplayBookName(parsed.book)} ${parsed.chapter}:${v}`,
-                  text: cleanVerseText(verseData.text),
-                  translation: version.toUpperCase()
-                });
-                console.log('Successfully fetched verse', v);
+          // Try to fetch the entire chapter and cache it
+          const cachedVerses = await fetchAndCacheChapter(version, parsed.book, parsed.chapter);
+          if (cachedVerses) {
+            // Filter cached chapter for the requested range
+            for (let v = startVerse; v <= endVerse; v++) {
+              const verse = cachedVerses.find(cv => cv.verse === v);
+              if (verse) {
+                results.push(verse);
               }
-            } catch (err) {
-              console.log('Failed to fetch verse', v, ':', err.message);
-              // Continue to next verse if one fails
+            }
+          } else {
+            // Fallback: try individual request for each verse
+            for (let v = startVerse; v <= endVerse; v++) {
+              const apiUrl = `${BIBLE_API_PRIMARY}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${v}.json`;
+              console.log('Fetching:', apiUrl);
+              try {
+                const verseData = await fetchFromBibleAPI(apiUrl);
+                if (verseData && verseData.text) {
+                  results.push({
+                    reference: `${getDisplayBookName(parsed.book)} ${parsed.chapter}:${v}`,
+                    text: cleanVerseText(verseData.text),
+                    translation: version.toUpperCase()
+                  });
+                  console.log('Successfully fetched verse', v);
+                }
+              } catch (err) {
+                console.log('Failed to fetch verse', v, ':', err.message);
+              }
             }
           }
           
@@ -1401,7 +1657,18 @@ app.get('/api/bible/search', async (req, res) => {
         } else {
           // Handle single verse
           console.log('Detected single verse:', parsed.verse);
-          const apiUrl = `${BIBLE_API_BASE}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${parsed.verse}.json`;
+          
+          // First try to fetch the entire chapter and cache it
+          const cachedVerses = await fetchAndCacheChapter(version, parsed.book, parsed.chapter);
+          if (cachedVerses) {
+            const verse = cachedVerses.find(v => v.verse === parseInt(parsed.verse));
+            if (verse) {
+              return res.json([verse]);
+            }
+          }
+          
+          // Fallback: try individual verse request
+          const apiUrl = `${BIBLE_API_PRIMARY}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${parsed.verse}.json`;
           console.log('Fetching single verse:', apiUrl);
           const verseData = await fetchFromBibleAPI(apiUrl);
           
@@ -1420,13 +1687,54 @@ app.get('/api/bible/search', async (req, res) => {
     
     // Search in verse library as fallback
     console.log('Falling back to library search');
-    const libraryResults = verseLibrary.filter(verse => 
-      verse.reference.toLowerCase().includes(searchTerm) ||
-      verse.text.toLowerCase().includes(searchTerm)
-    );
+    console.log('searchTerm:', searchTerm);
+    console.log('Total verses in library:', verseLibrary.length);
+    
+    // If we have a parsed verse reference, first try to find verses from that book
+    if (parsed && parsed.book) {
+      console.log('Parsed verse reference found, searching library for book:', parsed.book);
+      const bookVerses = verseLibrary.filter(v => v.book.toLowerCase() === parsed.book.toLowerCase());
+      if (bookVerses.length > 0) {
+        console.log(`Found ${bookVerses.length} verses from ${parsed.book} in library`);
+        // If looking for specific chapter, filter by chapter
+        let results = bookVerses;
+        if (parsed.chapter) {
+          results = bookVerses.filter(v => v.chapter === parseInt(parsed.chapter));
+          if (results.length > 0) {
+            console.log(`Found ${results.length} verses from ${parsed.book} chapter ${parsed.chapter}`);
+          }
+        }
+        if (results.length > 0) {
+          return res.json(results.map(v => ({...v, translation: version.toUpperCase()})));
+        }
+      }
+    }
+    
+    // General text search
+    const libraryResults = verseLibrary.filter(verse => {
+      const match = verse.reference.toLowerCase().includes(searchTerm) ||
+                    verse.text.toLowerCase().includes(searchTerm);
+      if (match) {
+        console.log('Found match:', verse.reference);
+      }
+      return match;
+    });
+    
+    console.log('Library results found:', libraryResults.length);
     
     if (libraryResults.length > 0) {
       return res.json(libraryResults.map(v => ({...v, translation: version.toUpperCase()})));
+    }
+    
+    // If no results found in library and it's a numbered book, provide helpful message
+    if (parsed && parsed.book && parsed.book.match(/^[1-3]-/)) {
+      console.log(`No verse found for ${query} - numbered book not fully cached`);
+      return res.json([{
+        reference: `${query}`,
+        text: `This verse is not currently available in the library. For complete Bible search coverage of numbered books (1 Samuel, 2 Kings, 3 John, etc.), please consult BibleGateway.com or another comprehensive Bible resource.`,
+        translation: version.toUpperCase(),
+        isPlaceholder: true
+      }]);
     }
     
     // If no results found in library, return empty
@@ -1451,7 +1759,7 @@ app.get('/api/bible/verse/:reference', async (req, res) => {
 
     // Try to fetch from API
     try {
-      const apiUrl = `${BIBLE_API_BASE}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${parsed.verse}.json`;
+const apiUrl = `${BIBLE_API_PRIMARY}/${version}/books/${parsed.book}/chapters/${parsed.chapter}/verses/${parsed.verse}.json`;
       const verseData = await fetchFromBibleAPI(apiUrl);
       
       if (verseData && verseData.text) {
@@ -1524,7 +1832,18 @@ app.get('/api/bible/reading-plans', (req, res) => {
   res.json(readingPlans);
 });
 
+// Diagnostic endpoint for email testing
+app.get('/test-email-status', (req, res) => {
+  res.json({
+    emailConfigured: hasValidPassword,
+    emailUser: emailUser,
+    emailPassword: emailPassword,
+    credentialStatus: hasValidPassword ? '✓ VALID' : '❌ PLACEHOLDER - Update .env',
+    issue: !hasValidPassword ? 'Email password is still a placeholder. Update .env file with your Gmail App Password.' : 'All good!'
+  });
+});
+
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Kingdom Impact Database Server seamlessly running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Kingdom Impact Database Server seamlessly running on port ${PORT} (0.0.0.0)`);
 });

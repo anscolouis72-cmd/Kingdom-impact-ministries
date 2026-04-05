@@ -143,3 +143,5 @@ Successfully fetched verse 6
 Fetching: https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/en-kjv/books/john/chapters/7/verses/7.json
 Successfully fetched verse 7
 Total verses fetched: 7
+[2026-04-04T13:00:39.239Z] Email sending failed for anscolouis9@gmail.com: Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials a640c23a62f3a-b9c3c9721cesm291958666b.13 - gsmtp

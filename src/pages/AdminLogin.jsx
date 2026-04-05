@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, LogIn } from 'lucide-react';
+import { Mail, Lock, User, LogIn, CheckCircle } from 'lucide-react';
 
 const AdminLogin = ({ setAdminId, setAdminName }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    adminCode: ''
+    adminCode: '',
+    verificationCode: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -43,7 +46,15 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
         return;
       }
 
-      // Save admin info to localStorage
+      if (!isLogin) {
+        // Registration successful but needs verification
+        setNeedsVerification(true);
+        setVerificationEmail(formData.email);
+        setMessage('Account created! Check your email for the verification code.');
+        return;
+      }
+
+      // Login successful
       localStorage.setItem('adminId', data.id);
       localStorage.setItem('adminName', data.name);
       localStorage.setItem('adminEmail', data.email);
@@ -62,13 +73,146 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
     }
   };
 
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: verificationEmail,
+          token: formData.verificationCode
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'Error');
+        return;
+      }
+
+      setMessage('✓ Email verified successfully! You can now log in.');
+      setNeedsVerification(false);
+      setFormData(prev => ({ ...prev, verificationCode: '', password: '' }));
+      setIsLogin(true);
+      
+    } catch (error) {
+      console.error('Error:', error);
+      setMessage('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (needsVerification) {
+    return (
+      <main className="container section animate-fade-in" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '450px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--accent-main)' }}>
+              <Mail size={48} />
+            </div>
+            <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Verify Your Email</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              Check your email for a verification code
+            </p>
+          </div>
+
+          <form onSubmit={handleVerifyEmail} className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>
+                A verification code has been sent to:<br />
+                <strong style={{ color: 'var(--text-primary)' }}>{verificationEmail}</strong>
+              </p>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Verification Code</label>
+              <input 
+                type="text" 
+                name="verificationCode" 
+                value={formData.verificationCode} 
+                onChange={handleChange} 
+                placeholder="Enter 6-digit code from email" 
+                maxLength="6"
+                style={{ 
+                  background: 'var(--bg-surface)', 
+                  border: '1px solid var(--glass-border)', 
+                  borderRadius: '8px', 
+                  padding: '0.75rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '1.2rem',
+                  textAlign: 'center',
+                  letterSpacing: '0.2em',
+                  fontWeight: 'bold',
+                  outline: 'none'
+                }} 
+              />
+              <small style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'block' }}>
+                Code valid for 24 hours
+              </small>
+            </div>
+
+            {message && (
+              <div style={{ padding: '1rem', borderRadius: '8px', background: message.includes('✓') ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: message.includes('✓') ? '#22c55e' : '#ef4444', textAlign: 'center' }}>
+                {message}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading || !formData.verificationCode} 
+              style={{ 
+                background: 'var(--accent-main)', 
+                color: 'white', 
+                border: 'none', 
+                padding: '0.75rem', 
+                borderRadius: '8px', 
+                fontWeight: 500, 
+                cursor: loading || !formData.verificationCode ? 'not-allowed' : 'pointer', 
+                opacity: loading || !formData.verificationCode ? 0.6 : 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '0.5rem' 
+              }}>
+              <CheckCircle size={18} /> {loading ? 'Verifying...' : 'Verify Email'}
+            </button>
+
+            <button 
+              type="button" 
+              onClick={() => { 
+                setNeedsVerification(false); 
+                setIsLogin(true);
+                setMessage('');
+              }} 
+              style={{ 
+                background: 'transparent', 
+                color: 'var(--accent-main)', 
+                border: '1px solid var(--accent-main)', 
+                padding: '0.75rem', 
+                borderRadius: '8px', 
+                cursor: 'pointer' 
+              }}>
+              Back to Login
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="container section animate-fade-in" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ maxWidth: '450px', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Admin Portal</h1>
           <p style={{ color: 'var(--text-secondary)' }}>
-            {isLogin ? 'Sign in to manage announcements' : 'Create admin account'}
+            {isLogin ? 'Sign in to manage application activites' : 'Create admin account'}
           </p>
         </div>
 
