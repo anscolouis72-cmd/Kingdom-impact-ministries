@@ -19,7 +19,7 @@ const Media = ({ adminId }) => {
 
   const fetchMedia = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/media');
+      const response = await fetch('http://192.168.8.165:5000/api/media');
       const data = await response.json();
       setMedia(data);
     } catch (error) {
@@ -33,7 +33,7 @@ const Media = ({ adminId }) => {
     if (!window.confirm('Are you sure you want to delete this media?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/media/${id}`, {
+      const response = await fetch(`http://192.168.8.165:5000/api/media/${id}`, {
         method: 'DELETE'
       });
 

@@ -33,7 +33,7 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
         ? { email: formData.email, password: formData.password }
         : { name: formData.name, email: formData.email, password: formData.password, adminCode: formData.adminCode };
 
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`http://192.168.8.165:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -79,7 +79,7 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
     setMessage('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/verify-email`, {
+      const response = await fetch(`http://192.168.8.165:5000/api/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

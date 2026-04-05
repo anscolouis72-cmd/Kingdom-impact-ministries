@@ -17,7 +17,7 @@ const Teachings = () => {
 
   const fetchTeachings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/teachings');
+      const response = await fetch('http://192.168.8.165:5000/api/teachings');
       const data = await response.json();
       setTeachings(data);
     } catch (error) {
@@ -31,7 +31,7 @@ const Teachings = () => {
     if (!window.confirm('Are you sure you want to delete this teaching?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/teachings/${id}`, {
+      const response = await fetch(`http://192.168.8.165:5000/api/teachings/${id}`, {
         method: 'DELETE'
       });
 

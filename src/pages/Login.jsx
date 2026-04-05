@@ -14,7 +14,7 @@ const Login = ({ setIsAuthenticated }) => {
     setUnverifiedEmail('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch('http://192.168.8.165:5000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

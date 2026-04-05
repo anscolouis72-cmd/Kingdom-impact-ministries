@@ -48,9 +48,9 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const fetchAllData = async () => {
     try {
       const [announcementsRes, mediaRes, teachingsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/announcements'),
-        fetch('http://localhost:5000/api/media'),
-        fetch('http://localhost:5000/api/teachings')
+        fetch('http://192.168.8.165:5000/api/announcements'),
+        fetch('http://192.168.8.165:5000/api/media'),
+        fetch('http://192.168.8.165:5000/api/teachings')
       ]);
 
       if (!announcementsRes.ok) throw new Error('Failed to fetch announcements');
@@ -134,8 +134,8 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       const currentAdminId = adminId || localStorage.getItem('adminId');
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId 
-        ? `http://localhost:5000/api/announcements/${editingId}`
-        : 'http://localhost:5000/api/announcements';
+        ? `http://192.168.8.165:5000/api/announcements/${editingId}`
+        : 'http://192.168.8.165:5000/api/announcements';
       
       const payloadData = new FormData();
       payloadData.append('title', formData.title);
@@ -195,8 +195,8 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       const currentAdminId = adminId || localStorage.getItem('adminId');
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId 
-        ? `http://localhost:5000/api/media/${editingId}`
-        : 'http://localhost:5000/api/media';
+        ? `http://192.168.8.165:5000/api/media/${editingId}`
+        : 'http://192.168.8.165:5000/api/media';
       
       const payloadData = new FormData();
       payloadData.append('title', formData.title);
@@ -267,8 +267,8 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
       const currentAdminId = adminId || localStorage.getItem('adminId');
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId 
-        ? `http://localhost:5000/api/teachings/${editingId}`
-        : 'http://localhost:5000/api/teachings';
+        ? `http://192.168.8.165:5000/api/teachings/${editingId}`
+        : 'http://192.168.8.165:5000/api/teachings';
       
       const payloadData = new FormData();
       payloadData.append('title', formData.title);
@@ -390,7 +390,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const handleDeleteAnnouncement = async (id) => {
     if (!window.confirm('Delete this announcement?')) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/announcements/${id}`, { method: 'DELETE' });
+      const response = await fetch(`http://192.168.8.165:5000/api/announcements/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Delete failed');
       setMessage('Announcement deleted!');
       setTimeout(() => { setMessage(''); fetchAllData(); }, 1500);
@@ -402,7 +402,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const handleDeleteMedia = async (id) => {
     if (!window.confirm('Delete this media?')) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/media/${id}`, { method: 'DELETE' });
+      const response = await fetch(`http://192.168.8.165:5000/api/media/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Delete failed');
       setMessage('Media deleted!');
       setTimeout(() => { setMessage(''); fetchAllData(); }, 1500);
@@ -414,7 +414,7 @@ const AdminDashboard = ({ adminId, adminName, setAdminId, setAdminName }) => {
   const handleDeleteTeaching = async (id) => {
     if (!window.confirm('Delete this teaching?')) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/teachings/${id}`, { method: 'DELETE' });
+      const response = await fetch(`http://192.168.8.165:5000/api/teachings/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Delete failed');
       setMessage('Teaching deleted!');
       setTimeout(() => { setMessage(''); fetchAllData(); }, 1500);

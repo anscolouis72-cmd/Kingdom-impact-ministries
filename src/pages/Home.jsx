@@ -16,9 +16,9 @@ const Home = () => {
   const fetchData = async () => {
     try {
       const [announcementsRes, mediaRes, teachingsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/announcements'),
-        fetch('http://localhost:5000/api/media'),
-        fetch('http://localhost:5000/api/teachings')
+        fetch('http://192.168.8.165:5000/api/announcements'),
+        fetch('http://192.168.8.165:5000/api/media'),
+        fetch('http://192.168.8.165:5000/api/teachings')
       ]);
       
       const announcementsData = await announcementsRes.json();
@@ -41,7 +41,7 @@ const Home = () => {
     if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/${type}/${id}`, {
+      const response = await fetch(`http://192.168.8.165:5000/api/${type}/${id}`, {
         method: 'DELETE'
       });
 

@@ -11,7 +11,7 @@ const Announcements = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/announcements');
+      const response = await fetch('http://192.168.8.165:5000/api/announcements');
       const data = await response.json();
       setAnnouncements(data);
     } catch (error) {
