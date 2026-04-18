@@ -13,17 +13,25 @@ const API_BASE_URL = (() => {
     return defaultLocalhost;
   }
 
+  // If a specific API URL is provided via environment variable, use it
   if (envUrl) {
     return envUrl;
   }
 
+  // For Android Capacitor apps, use emulator-specific hosts
   if (isCapacitor && isAndroid) {
     // Default to Android emulator host.
     // If you're using a real device, set VITE_API_BASE_URL to your computer's IP.
     return androidEmulator;
   }
 
-  return defaultLocalhost;
+  // For web apps, dynamically use the current hostname
+  // This allows the app to work on both localhost and network IPs
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  const apiUrl = `${protocol}//${hostname}:5000`;
+  
+  return apiUrl;
 })();
 
 if (typeof window !== 'undefined') {
