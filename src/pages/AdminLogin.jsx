@@ -29,6 +29,9 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
     setMessage('');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const endpoint = isLogin ? '/api/admin/login' : '/api/admin/register';
       const payload = isLogin 
         ? { email: formData.email, password: formData.password }
@@ -37,8 +40,11 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -68,7 +74,11 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
       setTimeout(() => navigate('/admin/dashboard'), 1500);
     } catch (error) {
       console.error('Error:', error);
-      setMessage('Connection error. Please try again.');
+      if (error.name === 'AbortError') {
+        setMessage('Request timed out. Check the backend server is running and responding.');
+      } else {
+        setMessage('Connection error. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -80,14 +90,20 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
     setMessage('');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/api/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: verificationEmail,
           token: formData.verificationCode
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -103,7 +119,11 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
       
     } catch (error) {
       console.error('Error:', error);
-      setMessage('Connection error. Please try again.');
+      if (error.name === 'AbortError') {
+        setMessage('Request timed out. Check the backend server is running and responding.');
+      } else {
+        setMessage('Connection error. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

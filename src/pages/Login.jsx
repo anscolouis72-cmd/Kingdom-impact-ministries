@@ -15,11 +15,18 @@ const Login = ({ setIsAuthenticated }) => {
     setUnverifiedEmail('');
 
     try {
+      // Create an AbortController with a 10-second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       const data = await response.json();
       
@@ -37,7 +44,12 @@ const Login = ({ setIsAuthenticated }) => {
       alert(`Welcome back, ${data.name}! You are authenticated directly from the Database.`);
       navigate('/home');
     } catch (err) {
-      setError("Failed to connect to the database server. Ensure the backend is running.");
+      if (err.name === 'AbortError') {
+        setError("Request timed out. Check the backend server is running and responding.");
+      } else {
+        setError("Failed to connect to the database server. Ensure the backend is running and check the console for details.");
+      }
+      console.error('Login error:', err);
     }
   };
 

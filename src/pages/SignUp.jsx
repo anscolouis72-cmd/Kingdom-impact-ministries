@@ -18,11 +18,17 @@ const SignUp = ({ setIsAuthenticated }) => {
     setSuccessMessage('');
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/api/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       const data = await response.json();
       
@@ -35,7 +41,12 @@ const SignUp = ({ setIsAuthenticated }) => {
       setSuccessMessage(data.message || `Account created! A verification email has been sent to ${formData.email}. Check your email and enter the verification code below.`);
       setStep('verify');
     } catch (err) {
-      setError("Failed to connect to the database server. Ensure the backend is running.");
+      if (err.name === 'AbortError') {
+        setError("Request timed out. Check the backend server is running and responding.");
+      } else {
+        setError("Failed to connect to the database server. Ensure the backend is running.");
+      }
+      console.error('Signup error:', err);
     }
   };
 
@@ -50,14 +61,20 @@ const SignUp = ({ setIsAuthenticated }) => {
     }
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/api/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: signupEmail,
           token: verificationToken
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       const data = await response.json();
       
@@ -71,7 +88,12 @@ const SignUp = ({ setIsAuthenticated }) => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError("Failed to verify email. Please check your connection.");
+      if (err.name === 'AbortError') {
+        setError("Request timed out. Check the backend server is running and responding.");
+      } else {
+        setError("Failed to verify email. Please check your connection.");
+      }
+      console.error('Verify error:', err);
     }
   };
 
