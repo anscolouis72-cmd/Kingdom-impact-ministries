@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, BookOpen, AlertCircle } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const Login = ({ setIsAuthenticated }) => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -14,7 +15,7 @@ const Login = ({ setIsAuthenticated }) => {
     setUnverifiedEmail('');
 
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/login', {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

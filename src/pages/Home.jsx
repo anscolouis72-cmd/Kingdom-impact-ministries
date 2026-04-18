@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Radio, PlayCircle, Video, BookOpen, ArrowRight, Play, Image, X } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const Home = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -16,9 +17,9 @@ const Home = () => {
   const fetchData = async () => {
     try {
       const [announcementsRes, mediaRes, teachingsRes] = await Promise.all([
-        fetch('http://192.168.8.165:5000/api/announcements'),
-        fetch('http://192.168.8.165:5000/api/media'),
-        fetch('http://192.168.8.165:5000/api/teachings')
+        fetch(`${API_BASE_URL}/api/announcements`),
+        fetch(`${API_BASE_URL}/api/media`),
+        fetch(`${API_BASE_URL}/api/teachings`)
       ]);
       
       const announcementsData = await announcementsRes.json();
@@ -41,7 +42,7 @@ const Home = () => {
     if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
 
     try {
-      const response = await fetch(`http://192.168.8.165:5000/api/${type}/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/${type}/${id}`, {
         method: 'DELETE'
       });
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const SignUp = ({ setIsAuthenticated }) => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
@@ -17,7 +18,7 @@ const SignUp = ({ setIsAuthenticated }) => {
     setSuccessMessage('');
     
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/signup', {
+      const response = await fetch(`${API_BASE_URL}/api/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -49,7 +50,7 @@ const SignUp = ({ setIsAuthenticated }) => {
     }
     
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/verify-email', {
+      const response = await fetch(`${API_BASE_URL}/api/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

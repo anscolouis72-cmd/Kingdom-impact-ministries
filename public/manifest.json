@@ -1,0 +1,25 @@
+{
+  "name": "Kingdom Impact Ministries",
+  "short_name": "KIM",
+  "description": "Sharing announcements, church media, live streaming and Sunday teachings.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1D8841",
+  "background_color": "#FFFFFF",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

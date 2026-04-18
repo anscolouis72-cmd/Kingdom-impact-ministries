@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, LogIn, CheckCircle } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const AdminLogin = ({ setAdminId, setAdminName }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -33,7 +34,7 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
         ? { email: formData.email, password: formData.password }
         : { name: formData.name, email: formData.email, password: formData.password, adminCode: formData.adminCode };
 
-      const response = await fetch(`http://192.168.8.165:5000${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -79,7 +80,7 @@ const AdminLogin = ({ setAdminId, setAdminName }) => {
     setMessage('');
 
     try {
-      const response = await fetch(`http://192.168.8.165:5000/api/verify-email`, {
+      const response = await fetch(`${API_BASE_URL}/api/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Video, Edit, Trash2, Plus, Play, X, ChevronLeft, ChevronRight, Image } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const Media = ({ adminId }) => {
   const [media, setMedia] = useState([]);
@@ -19,7 +20,7 @@ const Media = ({ adminId }) => {
 
   const fetchMedia = async () => {
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/media');
+      const response = await fetch(`${API_BASE_URL}/api/media`);
       const data = await response.json();
       setMedia(data);
     } catch (error) {
@@ -33,7 +34,7 @@ const Media = ({ adminId }) => {
     if (!window.confirm('Are you sure you want to delete this media?')) return;
 
     try {
-      const response = await fetch(`http://192.168.8.165:5000/api/media/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/media/${id}`, {
         method: 'DELETE'
       });
 

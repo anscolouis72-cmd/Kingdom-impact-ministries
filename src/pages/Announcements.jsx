@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const Announcements = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -11,7 +12,7 @@ const Announcements = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/announcements');
+      const response = await fetch(`${API_BASE_URL}/api/announcements`);
       const data = await response.json();
       setAnnouncements(data);
     } catch (error) {

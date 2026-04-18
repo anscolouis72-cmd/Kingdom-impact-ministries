@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Edit, Trash2, Plus, Play, X } from 'lucide-react';
+import API_BASE_URL from '../api';
 
 const Teachings = () => {
   const [teachings, setTeachings] = useState([]);
@@ -17,7 +18,7 @@ const Teachings = () => {
 
   const fetchTeachings = async () => {
     try {
-      const response = await fetch('http://192.168.8.165:5000/api/teachings');
+      const response = await fetch(`${API_BASE_URL}/api/teachings`);
       const data = await response.json();
       setTeachings(data);
     } catch (error) {
@@ -31,7 +32,7 @@ const Teachings = () => {
     if (!window.confirm('Are you sure you want to delete this teaching?')) return;
 
     try {
-      const response = await fetch(`http://192.168.8.165:5000/api/teachings/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/teachings/${id}`, {
         method: 'DELETE'
       });
 
