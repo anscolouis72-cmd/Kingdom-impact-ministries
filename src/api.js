@@ -13,8 +13,24 @@ const API_BASE_URL = (() => {
     return defaultLocalhost;
   }
 
-  // If a specific API URL is provided via environment variable, use it
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+
   if (envUrl) {
+    try {
+      const parsed = new URL(envUrl);
+      const isLocalhostUrl = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      const isRemoteHost = hostname && hostname !== 'localhost' && hostname !== '127.0.0.1';
+
+      // If the environment variable points to localhost but the app is running on a remote host,
+      // fall back to the current hostname so the phone can reach the backend on the PC.
+      if (isLocalhostUrl && isRemoteHost) {
+        return `${protocol}//${hostname}:5000`;
+      }
+    } catch (error) {
+      console.warn('Invalid VITE_API_BASE_URL:', envUrl, error);
+    }
+
     return envUrl;
   }
 
@@ -27,8 +43,6 @@ const API_BASE_URL = (() => {
 
   // For web apps, dynamically use the current hostname
   // This allows the app to work on both localhost and network IPs
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
   const apiUrl = `${protocol}//${hostname}:5000`;
   
   return apiUrl;

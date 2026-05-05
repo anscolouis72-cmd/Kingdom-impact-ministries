@@ -77,9 +77,9 @@ const App = () => {
       {/* Navigation */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'var(--glass-bg)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--glass-border)' }}>
         <div className="container nav-container">
-          <Link to={isAuthenticated ? "/home" : "/"} style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', flexShrink: 1 }}>
+          <Link to={isAuthenticated ? "/home" : "/"} className="brand-logo" style={{ textDecoration: 'none', flexShrink: 1 }}>
             <img src="/logo.jpg" alt="KIM Logo" style={{ height: '64px', objectFit: 'contain', borderRadius: '8px' }} />
-            <h1 style={{ fontSize: '1.5rem', margin: 0, color: 'var(--text-primary)' }}>Kingdom Impact Ministries</h1>
+            <h1 className="brand-text">Kingdom Impact Ministries</h1>
           </Link>
 
           <div className="nav-actions">
@@ -155,9 +155,9 @@ const App = () => {
       {/* Footer */}
       <footer style={{ background: 'var(--bg-secondary)', padding: '4rem 0 2rem 0', borderTop: '1px solid var(--glass-border)', marginTop: '4rem' }}>
         <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-          <Link to={isAuthenticated ? "/home" : "/"} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-main)', textDecoration: 'none' }}>
+          <Link to={isAuthenticated ? "/home" : "/"} className="brand-logo footer-brand" style={{ textDecoration: 'none' }}>
             <img src="/logo.jpg" alt="KIM Logo" style={{ height: '80px', objectFit: 'contain', borderRadius: '8px' }} />
-            <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Kingdom Impact Ministries</h2>
+            <h2 className="brand-text footer-brand-text">Kingdom Impact Ministries</h2>
           </Link>
           <p style={{ color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '400px' }}>
             Impacting the world through the knowledge of God and His kingdom.

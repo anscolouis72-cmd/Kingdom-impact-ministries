@@ -205,22 +205,47 @@ ul {
 
 .nav-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  height: 80px;
+  flex-wrap: wrap;
+  height: auto;
   gap: 20px;
+  padding: 1.5rem 0;
 }
 
 .nav-links {
   display: flex;
   gap: 2rem;
   margin: 0;
+  flex-wrap: wrap;
+  font-size: 1.2rem;
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
   gap: 2rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: 1.2rem;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 auto;
+  white-space: nowrap;
+}
+
+.brand-text {
+  font-size: 1.4rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.footer-brand .brand-text {
+  font-size: 1.5rem;
 }
 
 .hero-buttons {
@@ -254,6 +279,19 @@ ul {
     flex-wrap: wrap;
     justify-content: center;
     gap: 1rem;
+    font-size: 1rem;
+  }
+
+  body {
+    font-size: 0.95rem;
+  }
+
+  .nav-links {
+    font-size: 1rem;
+  }
+
+  .brand-text {
+    font-size: 1.15rem;
   }
 
   .hero-title {
@@ -261,7 +299,7 @@ ul {
   }
 
   .hero-subtitle {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .hero-buttons {
